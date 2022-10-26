@@ -218,9 +218,9 @@ def load_gsheet(sheet_url):
     return df
 
 
-def append_gsheet(url, df):
+def append_gsheet(sheet_url, df):
     # open sheet by url
-    worksheet = get_google_cred().open_by_url(url).get_worksheet(0)
+    worksheet = get_google_cred().open_by_url(sheet_url).get_worksheet(0)
 
     # append rows from df to end of sheet
     worksheet.append_rows(df.fillna('').values.tolist())
