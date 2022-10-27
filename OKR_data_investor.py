@@ -19,8 +19,7 @@ df_actual['Ordinal Month'] = df_actual.index.to_period('M').astype(int)-603
 
 m1_ls = [0,0,0]
 m3_ls = [0,0,0]
-for m0 in range(3, df_actual['Ordinal Month'].max()+1): #print(m0)
-    # m0=3
+for m0 in range(3, df_actual['Ordinal Month'].max()+1): 
     df_m0 = df_actual[df_actual['Ordinal Month'] == m0]
     df_m1 = df_actual[df_actual['Ordinal Month'] == m0-1]
     df_m3 = df_actual[df_actual['Ordinal Month'] == m0-3]
