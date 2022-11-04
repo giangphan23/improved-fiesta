@@ -4,6 +4,8 @@ import os
 import re
 
 import pandas as pd
+import phonenumbers as pn
+import numpy as np
 import pymysql
 import requests
 import sshtunnel
@@ -45,6 +47,42 @@ def get_pages(limit: int = 1000000, table = 'orders'):
 ########################################################
 
 PHONE_REGEX_PATTERN = r"(\d{10,}|\d{9,}|\d{3,}\s\d{7,}|\d{4,}\s\d{6,}|\d{4,}\s\d{3,}\s\d{3,}|\d{3,}\s\d{3,}\s\d{2,}\s\d{2,}|84\d{9}|84\s\d{2}\s\d{7}|84\s\d{2}\s\d{3}\s\d{2}\s\d{2}|\d{4}.\d{3}.\d{3})"
+
+# clean phone number
+def clean_phone_number(series):
+
+    # extract phone_number from ser using PHONE_REGEX_PATTERN; remove non-numeric char
+    phone_number = series.str.extract(PHONE_REGEX_PATTERN, expand=False).str.replace('\D', '', regex=True)
+
+    # count char
+    phone_len = phone_number.str.len()
+
+
+    # phone country code
+    conditions = [
+        (phone_len > 0) & (phone_len <= 10) | phone_number.str.startswith('0'),
+        phone_number.str.startswith('1').fillna(False)
+        ]
+    choices = [
+        '84', # VN
+        '1' # US & some other countries
+        ]
+    phone_code = np.select(conditions, choices, default=phone_number.str[:2])
+
+    # phone country name
+    phone_country = pd.Series(phone_code).fillna(0).astype(int).apply(lambda x: pn.region_code_for_country_code(x))
+    phone_country.index = series.index
+
+    # parse & format phone number
+    ls=[]
+    for r in series.index:
+        p_n = phone_number.loc[r]
+        p_c = phone_country.loc[r]
+        p_cleaned = pn.format_number(pn.parse(p_n, p_c), pn.PhoneNumberFormat.INTERNATIONAL) if (p_c != 'ZZ')&(p_c != '') else ''
+        ls.append(p_cleaned)
+
+    return ls
+
 
 def raw_phone_number(billing, shipping):
     return billing if re.search(PHONE_REGEX_PATTERN, billing) else shipping
@@ -202,9 +240,13 @@ def get_google_cred():
     return gc
 
 
-def update_gsheet(sheet_url, df, string_escaping='default'):
-    # open & clear sheet1
-    worksheet = get_google_cred().open_by_url(sheet_url).get_worksheet(0)
+def update_gsheet(sheet_url, df, sheet_title=None, string_escaping='default'):
+    if sheet_title is None: # default: open & clear sheet1
+        worksheet = get_google_cred().open_by_url(sheet_url).get_worksheet(0)
+    else: # use sheet_title if provided
+        worksheet = get_google_cred().open_by_url(sheet_url).worksheet(sheet_title)
+
+    # clear sheet before updating
     worksheet.clear()
 
     # update df to gsheet
@@ -348,6 +390,28 @@ def single_SQL_query_to_df(command):
     return df
 
 
+# execute single SQL query
+def woo_single_SQL_query_to_df(command):
+
+    # connect db
+    wooDB_connect()
+
+    try:
+        if command != '':
+            cursor = connection.cursor()
+            cursor.execute(command)
+        else: pass
+        col_name = [col[0] for col in cursor.description]
+        values = cursor.fetchall()
+    except Exception as e:
+        print('This error can be ignored! ' + str(e))
+        raise
+
+    # convert to df
+    df = pd.DataFrame(values, columns=col_name)
+    return df
+
+
 # Run your SQL query
 def woo_sql_to_df(sql_file_path):
     """Runs a given SQL query via the global database connection.
@@ -455,3 +519,4 @@ def pivot_shipping_lines(df: pd.DataFrame):
     df_pivoted = pd.concat(ls).add_prefix('shipping_lines_')
     df_result = df.join(df_pivoted.set_index('shipping_lines_id'), how='left').drop('shipping_lines', axis=1)
     return df_result
+
