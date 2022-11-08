@@ -2,14 +2,14 @@ import numpy as np
 import pandas as pd
 import docosan_module as domo
 
-# post_sql = 'SELECT * FROM wp_posts;'
-# wp_posts_df = domo.woo_single_SQL_query_to_df(post_sql)
+# posts_sql = 'SELECT * FROM wp_posts;'
+# wp_posts_df = domo.woo_single_SQL_query_to_df(posts_sql)
 
 # postmeta_sql = 'SELECT * FROM wp_postmeta;'
 # wp_postmeta_df = domo.woo_single_SQL_query_to_df(postmeta_sql)
 
-# item_sql = 'SELECT * FROM wp_woocommerce_order_items;'
-# wp_woocommerce_order_items_df = domo.woo_single_SQL_query_to_df(item_sql)
+# items_sql = 'SELECT * FROM wp_woocommerce_order_items;'
+# wp_woocommerce_order_items_df = domo.woo_single_SQL_query_to_df(items_sql)
 
 # itemmeta_sql = 'SELECT * FROM wp_woocommerce_order_itemmeta;'
 # wp_woocommerce_order_itemmeta_df = domo.woo_single_SQL_query_to_df(itemmeta_sql)
@@ -85,23 +85,83 @@ itemmeta_df = itemmeta_df.drop_duplicates(['order_item_id', 'meta_key'])
 # pivot item meta
 itemmeta_df_pivoted = itemmeta_df.pivot(index='order_item_id', columns='meta_key', values='meta_value')
 
+
+
+
+
+
+
+
+##########################################################################
+# separate order_item_type into 2 columns: line_item & the rest
+items_df['order_item_type_pivot'] = np.where(~items_df['order_item_type'].str.contains('line_item'), items_df['order_item_type'], None)
+# items_df['order_item_id_pivot'] = np.where(~items_df['order_item_type'].str.contains('line_item'), items_df['order_id'], items_df['order_item_id'])
+items_df['order_item_id_pivot'] = np.where(~items_df['order_item_type'].str.contains('line_item'), items_df['order_item_id'], items_df['order_id'])
+
+# keep line_item as rows, pivot the rest to columns with index=['order_item_type', 'order_id']
+items_df.pivot(index='order_item_id_pivot', columns='order_item_type_pivot', values='order_item_name')
+
+
 # check for duplicates => dups are orders with multiple products (aka line_item)
-dup = wp_woocommerce_order_items_df[wp_woocommerce_order_items_df.duplicated(['order_id', 'order_item_type'], keep=False)]
-domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/', dup)
-domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/', wp_woocommerce_order_items_df, 'Sheet2')
+dup = items_df[items_df.duplicated(['order_item_id_pivot', 'order_item_type_pivot'], keep=False)]
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/', item_info_df1)
 
-dup_2 = wp_woocommerce_order_items_df[~wp_woocommerce_order_items_df.order_item_type.str.contains('line_item')]
-dup_2[dup_2.duplicated(['order_id', 'order_item_type'], keep=False)]
-
-
-
+##########################################################################
+items_df = wp_woocommerce_order_items_df.copy().sort_values('order_id').set_index('order_item_id')
+item_info_df = items_df.join(itemmeta_df_pivoted).reset_index()
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/', item_info_df)
 
 
-# .pivot(index='order_id', columns='order_item_type', values='order_item_name')
+item_info_df1 = item_info_df[~item_info_df['order_item_type'].isin(['line_item', 'nurse-fee', 'fee'])] # add nurse-fee back when Trong finishes limitting 1 nurse-fee line per order (otherwise it causes dup in the next pivotting)
+# item_info_df1[item_info_df1.duplicated(['order_id', 'order_item_type'], keep=False)]
+item_info_df1 = item_info_df1.pivot(index=['order_id'], columns='order_item_type', values='order_item_name').reset_index()
+
+# process shipping items
+item_shipping = item_info_df[item_info_df['order_item_type'].isin(['shipping'])]
+item_shipping.info()
+item_shipping = item_shipping.loc[:,['order_item_name', 'order_id', 'cost', 'method_id']]
+item_shipping.columns = ['shipping_method_name', 'order_id', 'shipping_cost', 'shipping_method_id']
+item_shipping.set_index('order_id', inplace=True)
+
+#
 
 
-# join item & item meta
-item_info_df = wp_woocommerce_order_items_df.set_index('order_item_id').join(itemmeta_df_pivoted).reset_index()
+##########################################################################
+items_df = wp_woocommerce_order_items_df.copy().sort_values('order_id').set_index('order_item_id')
+items_df.order_item_type.unique()
+
+# line_item data (line_item = product; should we combine same products in an order?)
+items_line_item = items_df[items_df['order_item_type'].isin(['line_item'])].set_index('order_id').drop('order_item_type', axis=1)
+
+# shipping data
+items_shipping = items_df[items_df['order_item_type'].isin(['shipping'])]
+items_shipping_info = items_shipping.join(itemmeta_df_pivoted).reset_index().loc[:,['order_item_name', 'method_id', 'order_id', 'cost']]
+items_shipping_info.columns = ['shipping_method_name', 'shipping_method_id', 'order_id', 'shipping_cost']
+items_shipping_info.set_index('order_id', inplace=True)
+
+# tax data
+items_tax = items_df[items_df['order_item_type'].isin(['tax'])]
+# NOT USED YET; CONTINUE WHEN USED
+
+# coupon data
+items_coupon = items_df[items_df['order_item_type'].isin(['coupon'])]
+items_coupon_info = items_coupon.join(itemmeta_df_pivoted).reset_index().loc[:,['order_item_name', 'order_id', 'coupon_data', 'discount_amount']]
+items_coupon_info.columns = ['coupon_code', 'order_id', 'coupon_data', 'coupon_discount_amount']
+items_coupon_info.set_index('order_id', inplace=True)
+
+# nurse-fee
+# add nurse-fee when dev finishes limitting 1 nurse-fee line per order
+items_nurse_fee = items_df[items_df['order_item_type'].isin(['nurse-fee'])]
+items_nurse_fee_info = items_nurse_fee.join(itemmeta_df_pivoted).reset_index().loc[:,['order_id', '_nurse_fee_amount', '_nurse_line_total']].set_index('order_id')
+
+# join - 1 line_item in each row
+item_info_df = items_line_item.join(items_shipping_info).join(items_coupon_info)
+item_info_df.info()
+
+
+
+
+
 
 ##########################################################################
 # filter internal orders
