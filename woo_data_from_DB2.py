@@ -14,10 +14,10 @@ import docosan_module as domo
 # itemmeta_sql = 'SELECT * FROM wp_woocommerce_order_itemmeta;'
 # wp_woocommerce_order_itemmeta_df = domo.woo_single_SQL_query_to_df(itemmeta_sql)
 
-wp_posts_df.to_pickle('wp_posts_df.pkl')
-wp_postmeta_df.to_pickle('wp_postmeta_df.pkl')
-wp_woocommerce_order_items_df.to_pickle('wp_woocommerce_order_items_df.pkl')
-wp_woocommerce_order_itemmeta_df.to_pickle('wp_woocommerce_order_itemmeta_df.pkl')
+# wp_posts_df.to_pickle('wp_posts_df.pkl')
+# wp_postmeta_df.to_pickle('wp_postmeta_df.pkl')
+# wp_woocommerce_order_items_df.to_pickle('wp_woocommerce_order_items_df.pkl')
+# wp_woocommerce_order_itemmeta_df.to_pickle('wp_woocommerce_order_itemmeta_df.pkl')
 
 wp_posts_df = pd.read_pickle('wp_posts_df.pkl')
 wp_postmeta_df = pd.read_pickle('wp_postmeta_df.pkl')
@@ -41,56 +41,67 @@ order_df1 = order_df[order_df['meta_key'].str.contains('^_billing_|^_shipping_|^
 # rename columns
 order_df1.columns = ['order_id', 'created_date', 'updated_date', 'customer_note', 'status', 'meta_key', 'meta_value']
 
-# check for duplicates
+# check for duplicates => ok to drop
 order_df1[order_df1.duplicated(['order_id', 'meta_key'], False)]
 
 # reshape long to wide
-order_df2 =
-order_df1.drop_duplicates(subset=['order_id', 'meta_key'], keep='last').pivot(index=['order_id', 'created_date', 'updated_date', 'customer_note', 'status'], columns='meta_key', values='meta_value').reset_index(level=['created_date', 'updated_date', 'customer_note', 'status']).sort_index(ascending=False)
-
-
-
-
-##########################################################################
-# PREP ITEM META
-wp_woocommerce_order_itemmeta_df1 = wp_woocommerce_order_itemmeta_df[~wp_woocommerce_order_itemmeta_df.order_item_type.str.lower().str.contains('-|₫|mặt hàng')]
-
-wp_woocommerce_order_items_df['p_id'] = wp_woocommerce_order_items_df['order_id'].astype(str) + ' | ' + wp_woocommerce_order_items_df['order_item_name']
-
-wp_woocommerce_order_items_df[wp_woocommerce_order_items_df.duplicated('p_id', False)]
-.pivot('p_id', 'order_item_type', 'order_item_name')
-wp_woocommerce_order_items_df.pivot('order_id', 'order_item_type', 'order_item_name')
-
-
-
-
-wp_woocommerce_order_itemmeta_df1.pivot('order_item_id', 'order_item_type', 'order_item_name')
-
-wp_woocommerce_order_itemmeta_df1.pivot('order_item_id', 'order_item_type', 'order_item_name')
-
-
-
+order_df2 = order_df1.drop_duplicates(subset=['order_id', 'meta_key'], keep='last').pivot(index=['order_id', 'created_date', 'updated_date', 'customer_note', 'status'], columns='meta_key', values='meta_value').reset_index(level=['created_date', 'updated_date', 'customer_note', 'status']).sort_index(ascending=False)
 
 
 ##########################################################################
 # PREP PRODUCT META
-prod_df = post_info_df.loc[post_info_df['post_type'].str.contains('product'), ['post_date', 'post_modified', 'post_excerpt', 'post_status', 'meta_key', 'meta_value']].sort_index(ascending=False)
-
 # product
-prod_df = wp_posts_df.loc[wp_posts_df['post_type'].str.contains('product'), ['ID', 'post_date', 'post_modified']]
-prod_df.columns = ['prod_id', 'created_date', 'updated_date']
+prod_df = wp_posts_df.loc[wp_posts_df['post_type'].str.contains('^product'), ['ID', 'post_date', 'post_modified', 'post_type', 'post_title', 'post_excerpt', 'post_parent']]
+prod_df.set_index('ID', inplace=True)
 
-# keep relevant keys only
-prodmeta_df = wp_postmeta_df[wp_postmeta_df['meta_key'].str.contains('^_billing_|^_shipping_|^_name_|^_order_|^_payment|^_paid')]
-prodmeta_df.rename(columns={'post_id': 'order_id'}, inplace=True)
+# product meta - keep relevant keys only
+relevant_keys = '_regular_price|_sale_price|^_stock|^_tax|_wc_review_count|_wc_average_rating|^attribute_|^name_|^nurse_fee|total_sales'
+prod_meta_df = wp_postmeta_df[~(wp_postmeta_df['meta_key'].str.contains('^fb_'))&(wp_postmeta_df['meta_key'].str.contains(relevant_keys))]
+
+# join product & product meta
+prod_info_df = prod_df.join(prod_meta_df.set_index('post_id')).reset_index(names='prod_id')
+
+# check for duplicates => dups in prices are prod variations
+dup = prod_info_df[prod_info_df.duplicated(subset=['prod_id', 'meta_key'], keep=False)]
+    # if prod is variable (prod_id in post_parent) => prices in child prod
+    # if prod is simple (prod_id NOT in post_parent) => _price = _sale_price if exists, else = _regular price
+    # ACTION: drop _price in meta_key
 
 # reshape long to wide
-ordermeta_df2 = ordermeta_df.drop('meta_id', axis=1).drop_duplicates(subset=['order_id', 'meta_key'], keep='last').pivot(index='order_id', columns='meta_key', values='meta_value').sort_index(ascending=False)
+idx = ['prod_id', 'post_date', 'post_modified', 'post_type', 'post_title', 'post_excerpt', 'post_parent']
+prod_info_df = prod_info_df.pivot(index=idx, columns='meta_key', values='meta_value').reset_index(level=idx[1:]).sort_index(ascending=False)
+
+
+##########################################################################
+# PREP ITEM & META
+itemmeta_df = wp_woocommerce_order_itemmeta_df[~wp_woocommerce_order_itemmeta_df.meta_key.str.lower().str.contains('-|₫|mặt hàng')]
+
+# check for duplicates => ok to drop
+itemmeta_df[itemmeta_df.duplicated(['order_item_id', 'meta_key'], keep=False)]
+# wp_woocommerce_order_items_df[wp_woocommerce_order_items_df['order_item_id']==858]
+# wp_woocommerce_order_items_df[wp_woocommerce_order_items_df['order_item_id']==1070]
+itemmeta_df = itemmeta_df.drop_duplicates(['order_item_id', 'meta_key'])
+
+# pivot item meta
+itemmeta_df_pivoted = itemmeta_df.pivot(index='order_item_id', columns='meta_key', values='meta_value')
+
+# check for duplicates => dups are orders with multiple products (aka line_item)
+dup = wp_woocommerce_order_items_df[wp_woocommerce_order_items_df.duplicated(['order_id', 'order_item_type'], keep=False)]
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/', dup)
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/', wp_woocommerce_order_items_df, 'Sheet2')
+
+dup_2 = wp_woocommerce_order_items_df[~wp_woocommerce_order_items_df.order_item_type.str.contains('line_item')]
+dup_2[dup_2.duplicated(['order_id', 'order_item_type'], keep=False)]
 
 
 
 
 
+# .pivot(index='order_id', columns='order_item_type', values='order_item_name')
+
+
+# join item & item meta
+item_info_df = wp_woocommerce_order_items_df.set_index('order_item_id').join(itemmeta_df_pivoted).reset_index()
 
 ##########################################################################
 # filter internal orders
