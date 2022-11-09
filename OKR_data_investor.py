@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import docosan_module as domo
 
-sh_url = 'https://docs.google.com/spreadsheets/d/1Up9fEqDPEj7AIsPz4qG9KssoDR04PIZzGBRDF_li5LE/'
+sh_url = 'https://docs.google.com/spreadsheets/d/15zCrCorhPjt5358LHnPili2oXcn5jAVn0epy1ab-7fE/'
 df = domo.load_gsheet(sh_url).dropna(subset='Order ID')
 
 df['Create Date'] = pd.to_datetime(df['Create Date'], dayfirst=True)

@@ -50,13 +50,13 @@ PHONE_REGEX_PATTERN = r"(\d{10,}|\d{9,}|\d{3,}\s\d{7,}|\d{4,}\s\d{6,}|\d{4,}\s\d
 
 # clean phone number
 def clean_phone_number(series):
-
+    # series = woo_df_1['_billing_phone']
+    # series = pd.Series(['12027953213', '447975777666', '0707821006', np.nan])
     # extract phone_number from ser using PHONE_REGEX_PATTERN; remove non-numeric char
     phone_number = series.str.extract(PHONE_REGEX_PATTERN, expand=False).str.replace('\D', '', regex=True)
 
     # count char
     phone_len = phone_number.str.len()
-
 
     # phone country code
     conditions = [
@@ -67,19 +67,26 @@ def clean_phone_number(series):
         '84', # VN
         '1' # US & some other countries
         ]
-    phone_code = np.select(conditions, choices, default=phone_number.str[:2])
+    phone_code = pd.Series(np.select(conditions, choices, default=phone_number.str[:2]), index=series.index)
 
     # phone country name
-    phone_country = pd.Series(phone_code).fillna(0).astype(int).apply(lambda x: pn.region_code_for_country_code(x))
-    phone_country.index = series.index
+    phone_country = pd.Series(phone_code, index=series.index).fillna(0).astype(int).apply(lambda x: pn.region_code_for_country_code(x))
 
     # parse & format phone number
     ls=[]
     for r in series.index:
+        # r = 0
+        p_cntr = phone_country.loc[r]
+        p_code = phone_code.loc[r]
         p_n = phone_number.loc[r]
-        p_c = phone_country.loc[r]
-        p_cleaned = pn.format_number(pn.parse(p_n, p_c), pn.PhoneNumberFormat.INTERNATIONAL) if (p_c != 'ZZ')&(p_c != '') else ''
-        ls.append(p_cleaned)
+        if (p_cntr != 'ZZ') & (p_cntr != ''):
+            try:
+                p_cleaned = pn.format_number(pn.parse(p_n, p_cntr), pn.PhoneNumberFormat.NATIONAL)
+            except:
+                p_cleaned = ''
+            ls.append("(+{}) {}".format(p_code, p_cleaned))
+        else:
+            ls.append('')
 
     return ls
 
