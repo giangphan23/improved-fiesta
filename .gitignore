@@ -7,3 +7,4 @@ apt_reformatted.py
 apt_woo_combined.py
 woo_reformatted.py
 *.pkl
+*.csv
