@@ -381,6 +381,8 @@ def wooDB_connect():
 
 # execute single SQL query
 def single_SQL_query_to_df(command):
+    open_ssh_tunnel()
+    mysql_connect()
     try:
         if command != '':
             cursor = connection.cursor()
