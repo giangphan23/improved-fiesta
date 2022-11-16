@@ -95,7 +95,7 @@ df_apt_final['Payment Date'] = df2['original_payment_date']
 df_apt_final['Payment Status'] = df2['original_fee_status']
 df_apt_final['Shipping Total'] = np.nan
 df_apt_final['Item ID'] = df2['item_id']
-df_apt_final['Item Name'] = df2['item_name']
+df_apt_final['Item Name VI'] = df2['item_name']
 df_apt_final['Item Name Group'] = df2['item_name_group']
 df_apt_final['Item SKU'] = np.where(df2['item_id'].isna(), '', df2['Clinic ID'].astype('Int64').astype(str) + '_' + df2['item_id'].astype('Int64').astype(str))
 df_apt_final['Item Unit Price'] = df2['item_price']
@@ -129,5 +129,5 @@ df_apt_final['Platform'] = df2['Platform']
 
 
 
-domo.update_gsheet('https://docs.google.com/spreadsheets/d/1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', df_apt_final)
+# domo.update_gsheet('https://docs.google.com/spreadsheets/d/1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', df_apt_final)
 

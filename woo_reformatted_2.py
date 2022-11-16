@@ -154,21 +154,6 @@ prod_final_df['category_slug'] = prod_final_df['category_slug'].str.replace('-',
 
 
 ##########################################################################
-# HOW TO DEAL WITH VARIABLE PRODUCTS?
-
-# prod_final_df[prod_final_df._regular_price.isna()].product_id.unique()
-# prod_final_df[prod_final_df.product_id==4033]
-# prod_final_df[prod_final_df.product_type.str.contains('vari')].product_parent.unique()
-# prod_info_df[prod_info_df.product_type.str.contains('vari')]
-# wp_postmeta_df[wp_postmeta_df.meta_key.str.contains('price')].meta_key.unique()
-
-# order_product_lookup_df.loc[765,'variation_id'].unique()
-# order_product_lookup_df.variation_id.unique()
-
-
-
-
-##########################################################################
 # PREP ITEM
 
 # items
@@ -343,7 +328,7 @@ df_woo_final['Payment Date'] = pd.to_datetime(woo_df_final['_paid_date'])
 # df_woo_final['Payment Status'] = woo_df_final['original_fee_status']
 df_woo_final['Item ID'] = woo_df_final['product_id']
 df_woo_final['Item Name VI'] = woo_df_final['name_vi']
-df_woo_final['Item Name EN'] = woo_df_final['name_en']
+df_woo_final['Item Name EN'] = np.where(woo_df.name_en.isna(), woo_df.order_item_name, woo_df.name_en).__len__()
 df_woo_final['Item SKU'] = woo_df_final['item_sku']
 df_woo_final['Item Name Group'] = woo_df_final['line_items_name_group']
 df_woo_final['Item Quantity'] = woo_df_final['_qty'].astype('Int64')
@@ -396,5 +381,49 @@ df_woo_final['Address'] = (
 ##########################################################################
 ##########################################################################
 # LOAD
-domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/edit#gid=0', df_woo_final)
+# domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/edit#gid=0', df_woo_final)
 
+
+
+##########################################################################
+# HOW TO DEAL WITH VARIABLE PRODUCTS?
+
+prod_info_df[prod_info_df.product_type.str.contains('vari')]
+prod_info_df[prod_info_df.product_type.str.contains('vari')].product_parent.unique()
+prod_info_df[prod_info_df.product_type.str.contains('vari')].product_name.unique()
+
+prod_final_df[prod_final_df.variation_id!=0]
+
+
+
+
+prod_final_df[prod_final_df._regular_price.isna()].product_id.unique()
+prod_final_df[prod_final_df.product_id==4033]
+prod_final_df[prod_final_df.product_type.str.contains('vari').fillna(False)].product_parent.unique()
+
+
+
+order_product_lookup_df.loc[765,'variation_id'].unique()
+order_product_lookup_df.variation_id.unique()
+
+# woo_df = order_info_df1.join(item_info_df).join(prod_final_df.set_index('order_item_id'), on='order_item_id').join(coupon_info_df.set_index('coupon_code'), on='coupon_code').reset_index()
+
+woo_df.set_index('order_id').loc[5901,'order_item_id':'product_ids']
+order_info_df1.loc[5901,:]
+item_info_df.loc[5901,:]
+prod_final_df.set_index('order_item_id').loc[3418,:]
+
+
+arr = woo_df.loc[woo_df.name_en.isna(), 'order_item_id'].dropna().astype(int)
+
+# order_item_ids which exist in prod_final_df
+for id in arr:
+    if id in prod_final_df.order_item_id.values: print(id)
+
+prod_final_df[prod_final_df.order_item_id==3603].T
+
+
+
+
+
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1duyqi5lHPE9hOfJcdyRk-_0ZYZL4XjXkINEWz922cWQ/edit#gid=0', woo_df[woo_df.name_en.isna()])

@@ -2,9 +2,6 @@ import numpy as np
 import pandas as pd
 import docosan_module as domo
 
-# df = domo.sql_to_df('active_accounts.sql')
-# domo.update_gsheet('https://docs.google.com/spreadsheets/d/185PireHvhCKT9DE_H47m5VfhlJXQJjP9R99pBMCoVjo/', df, 'active_accounts_raw')
-
 
 # telemedicine doctors & private clinics
 sql = '''
@@ -37,12 +34,9 @@ WHERE d.display_name NOT LIKE "%test%"
 ;
 '''
 df = domo.single_SQL_query_to_df(sql)
-df.info()
-
-
-#
 df.set_index('doc_id', append=True, inplace=True)
 
+# sum of available slots
 lr=[]
 for c in ['mon', 'tue', 'wed', 'thurs', 'fri', 'sat', 'sun']:
     lc=[]
@@ -63,4 +57,5 @@ df_sche.index = pd.MultiIndex.from_tuples(idx, names=[None, 'doc_id'])
 df[['mon', 'tue', 'wed', 'thurs', 'fri', 'sat', 'sun']] = df_sche
 df['SUM_SLOTS'] = df[['mon', 'tue', 'wed', 'thurs', 'fri', 'sat', 'sun']].sum(axis=1)
 
+# upload
 domo.update_gsheet('https://docs.google.com/spreadsheets/d/16Sv1AqUnZ7N3U4kNVDGdKrwsl1Hp2AsajkN9jCyWcIk/', df, 'schedule', string_escaping='full')
