@@ -10,3 +10,5 @@ woo_reformatted.py
 *.csv
 *.xlsx
 *.xls
+*.json
+*.log

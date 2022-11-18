@@ -18,7 +18,7 @@ FROM appointments a
   JOIN master_patient mp
     ON el.created_by = mp.user_id
 
-WHERE a.request_by_providers = '0'
+WHERE -- a.request_by_providers = '0'
 AND NOT FIND_IN_SET(a.clinic_id, (SELECT
     list_user
   FROM user_exceptions

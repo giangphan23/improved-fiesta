@@ -5,6 +5,10 @@ import docosan_module as domo
 # extract data
 inv_file_path = 'SQL/Epaid Appointment Invoices.sql'
 df_inv = domo.sql_to_df(inv_file_path)
+# cols = ['extra_item_name','extra_item_price', 'extra_item_status', 'extra_item_payment_method']
+# df_inv2 = df_inv.drop(columns=cols)
+# for c in cols:
+#     df_inv2 = pd.concat([df_inv2, df_inv[c].str.split(',').explode()], axis=1)
 
 apt_file_path = 'SQL/Appointments_finance.sql'
 df_apt = domo.sql_to_df(apt_file_path)
@@ -18,6 +22,35 @@ df1.sort_values('Appointment ID', ascending=False, inplace=True)
 
 # pivot each line in original_fee_details into 1 item per row
 df2 = domo.pivot_original_fee_details(df1)
+
+# pivot each line in extra_fee_details into 1 item per row
+def pivot_original_fee_details(df: pd.DataFrame):
+    df = df.set_index('Appointment ID')
+    ls = []
+    for row in range(len(df)):
+        item = df.iloc[row]['original_fee_details']
+        if isinstance(item, str):
+            null = None
+            item = eval(item)
+            item_df = pd.json_normalize(item)
+            item_df['apt_id'] = df.iloc[row].name
+            ls.append(item_df)
+    df_pivoted = pd.concat(ls).add_prefix('item_')
+    df_result = df.join(df_pivoted.set_index('item_apt_id'), how='left').reset_index(
+    ).drop('original_fee_details', axis=1).rename(columns={'index': 'Appointment ID'})
+    return df_result
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Type Report column
 conditions = [
@@ -41,7 +74,6 @@ df2['Type Report'] = np.select(conditions, choices, default='')
 # item grouping
 col = ['Appointment ID', 'Reason', 'item_name']
 gr1 = df2.loc[df2['Type Report'].str.contains('Cares Actual'), col].drop_duplicates(subset='item_name').sort_values('Appointment ID')
-
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/', gr1) # manual grouping in gsheet
 gr1_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').iloc[:, 2:4].dropna(subset='item_name')
 df2 = pd.merge(df2, gr1_filled, how='left', left_on='item_name', right_on='item_name', )
@@ -58,6 +90,22 @@ df2['original_payment_method'] = df2['original_payment_method'].replace({
     'internet_banking': 'Zalopay',
     'Onepay': 'OnePay'
 }).fillna('At Clinic')
+
+
+
+
+
+#
+dff = df2.loc[:,['Appointment ID','item_name','extra_item_name','extra_item_price', 'extra_item_status', 'extra_item_payment_method']].dropna()
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/10FESapUwh--_Gkfn9QSxFqghQbM2XV33ESrME3KXU9I/edit#gid=0', dff)
+
+# if item_name NA: item_name = extra_item_name
+# if item_name not NA: stack extra_item_name on item_name
+
+
+
+
+
 
 #####################################################################
 # process apt data for finance
@@ -89,16 +137,20 @@ df_apt_final['Mode'] = df2['Appointment Mode']
 df_apt_final['Apt Status'] = df2['Status']
 df_apt_final['Order Status'] = ''
 df_apt_final['Lab Status'] = df2['Lab Status']
-df_apt_final['Payment Method'] = df2['original_payment_method']
+df_apt_final['Payment Method'] = df2['original_payment_method'] #
+
 df_apt_final['Payment ID'] = df2['epaid_id']
 df_apt_final['Payment Date'] = df2['original_payment_date']
-df_apt_final['Payment Status'] = df2['original_fee_status']
+df_apt_final['Payment Status'] = df2['original_fee_status'] #
+
 df_apt_final['Shipping Total'] = np.nan
 df_apt_final['Item ID'] = df2['item_id']
-df_apt_final['Item Name VI'] = df2['item_name']
+df_apt_final['Item Name VI'] = df2['item_name'] #
+
 df_apt_final['Item Name Group'] = df2['item_name_group']
 df_apt_final['Item SKU'] = np.where(df2['item_id'].isna(), '', df2['Clinic ID'].astype('Int64').astype(str) + '_' + df2['item_id'].astype('Int64').astype(str))
-df_apt_final['Item Unit Price'] = df2['item_price']
+df_apt_final['Item Unit Price'] = df2['item_price'] #
+
 df_apt_final['Item Quantity'] = df2['item_quantity'].astype(float).astype('Int64')
 df_apt_final['Item Subtotal'] = df2['item_total']
 df_apt_final['Nurse Fee'] = df2['Nurse Fee'].sort_values().fillna(0).astype(str).astype('Int64')
@@ -130,4 +182,3 @@ df_apt_final['Platform'] = df2['Platform']
 
 
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', df_apt_final)
-
