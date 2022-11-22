@@ -5,10 +5,6 @@ import docosan_module as domo
 # extract data
 inv_file_path = 'SQL/Epaid Appointment Invoices.sql'
 df_inv = domo.sql_to_df(inv_file_path)
-# cols = ['extra_item_name','extra_item_price', 'extra_item_status', 'extra_item_payment_method']
-# df_inv2 = df_inv.drop(columns=cols)
-# for c in cols:
-#     df_inv2 = pd.concat([df_inv2, df_inv[c].str.split(',').explode()], axis=1)
 
 apt_file_path = 'SQL/Appointments_finance.sql'
 df_apt = domo.sql_to_df(apt_file_path)
@@ -21,45 +17,18 @@ df1 = df_apt.merge(df_inv, how='left', left_on='Appointment ID', right_on='appoi
 df1.sort_values('Appointment ID', ascending=False, inplace=True)
 
 # pivot each line in original_fee_details into 1 item per row
-df2 = domo.pivot_original_fee_details(df1)
+# df2 = domo.pivot_original_fee_details(df1)
 
-# pivot each line in extra_fee_details into 1 item per row
-def pivot_original_fee_details(df: pd.DataFrame):
-    df = df.set_index('Appointment ID')
-    ls = []
-    for row in range(len(df)):
-        item = df.iloc[row]['original_fee_details']
-        if isinstance(item, str):
-            null = None
-            item = eval(item)
-            item_df = pd.json_normalize(item)
-            item_df['apt_id'] = df.iloc[row].name
-            ls.append(item_df)
-    df_pivoted = pd.concat(ls).add_prefix('item_')
-    df_result = df.join(df_pivoted.set_index('item_apt_id'), how='left').reset_index(
-    ).drop('original_fee_details', axis=1).rename(columns={'index': 'Appointment ID'})
-    return df_result
-
-
-
-
-
-
-
-
-
-
-
-
+#####################################################################
 
 # Type Report column
 conditions = [
     (df2['Cluster ID']!=299) & (df2['Status'].str.contains('Confirmed|Auto rejected')),
-    (df2['Cluster ID']!=299) & ~(df2['Status'].str.contains('Confirmed|Auto rejected')),
+    (df2['Cluster ID']!=299) & ~(df2.fillna('')['Status'].str.contains('Confirmed|Auto rejected')),
     (df2['Clinic ID']==615) & (df2['Status'].str.contains('Confirmed|Auto rejected')),
-    (df2['Clinic ID']==615) & ~(df2['Status'].str.contains('Confirmed|Auto rejected')),
+    (df2['Clinic ID']==615) & ~(df2.fillna('')['Status'].str.contains('Confirmed|Auto rejected')),
     (df2['Clinic ID'].isin([684,744,760,761])) & (df2['Status'].str.contains('Confirmed|Auto rejected')),
-    (df2['Clinic ID'].isin([684,744,760,761])) & ~(df2['Status'].str.contains('Confirmed|Auto rejected')),
+    (df2['Clinic ID'].isin([684,744,760,761])) & ~(df2.fillna('')['Status'].str.contains('Confirmed|Auto rejected')),
     ]
 choices = [
     'Appointment Actual',
@@ -70,6 +39,16 @@ choices = [
     'Cares Adjustment',
     ]
 df2['Type Report'] = np.select(conditions, choices, default='')
+
+
+# replace values in original_payment_method
+df2['original_payment_method'] = df2['original_payment_method'].replace({
+    'Bank transfer': 'Bank Transfer',
+    'cod': 'COD',
+    'internet_banking': 'Zalopay',
+    'Onepay': 'OnePay'
+}).fillna('At Clinic')
+
 
 # item grouping
 col = ['Appointment ID', 'Reason', 'item_name']
@@ -82,29 +61,6 @@ gr2 = df2.loc[(df2['Type Report'].str.contains('Cares Actual')) & (df2['item_nam
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/', gr2) # manual grouping in gsheet
 gr2_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/').iloc[:,[0,3]].dropna(subset='item_name_group')
 df2.loc[df2['Appointment ID'].isin(gr2_filled['Appointment ID']), 'item_name_group'] = gr2_filled['item_name_group'].values
-
-# replace values in original_payment_method
-df2['original_payment_method'] = df2['original_payment_method'].replace({
-    'Bank transfer': 'Bank Transfer',
-    'cod': 'COD',
-    'internet_banking': 'Zalopay',
-    'Onepay': 'OnePay'
-}).fillna('At Clinic')
-
-
-
-
-
-#
-dff = df2.loc[:,['Appointment ID','item_name','extra_item_name','extra_item_price', 'extra_item_status', 'extra_item_payment_method']].dropna()
-domo.update_gsheet('https://docs.google.com/spreadsheets/d/10FESapUwh--_Gkfn9QSxFqghQbM2XV33ESrME3KXU9I/edit#gid=0', dff)
-
-# if item_name NA: item_name = extra_item_name
-# if item_name not NA: stack extra_item_name on item_name
-
-
-
-
 
 
 #####################################################################
@@ -119,7 +75,8 @@ df_apt_final['Booked For'] = df2['Requester']
 df_apt_final['Agent ID'] = df2['agent_id']
 df_apt_final['Agent Name'] = df2['agent_name']
 df_apt_final['Booked By'] = df2['Patient Name']
-df_apt_final['Phone Number'] = domo.clean_phone_number(df2['Phone Number'])
+df_apt_final['Phone Number'] = df2['Phone Number']
+# df_apt_final['Phone Number'] = domo.clean_phone_number(df2['Phone Number'])
 df_apt_final['Birthday'] = df2['Patient Birthday']
 df_apt_final['Gender'] = df2['Patient Gender']
 df_apt_final['Cluster ID'] = df2['Cluster ID']
@@ -137,28 +94,35 @@ df_apt_final['Mode'] = df2['Appointment Mode']
 df_apt_final['Apt Status'] = df2['Status']
 df_apt_final['Order Status'] = ''
 df_apt_final['Lab Status'] = df2['Lab Status']
-df_apt_final['Payment Method'] = df2['original_payment_method'] #
+df_apt_final['Payment Method'] = df2['item_payment_method'] #
 
 df_apt_final['Payment ID'] = df2['epaid_id']
 df_apt_final['Payment Date'] = df2['original_payment_date']
-df_apt_final['Payment Status'] = df2['original_fee_status'] #
+df_apt_final['Payment Status'] = df2['item_payment_status'] #
 
 df_apt_final['Shipping Total'] = np.nan
 df_apt_final['Item ID'] = df2['item_id']
 df_apt_final['Item Name VI'] = df2['item_name'] #
+# df_apt_final['extra_item_name'] = df2['extra_item_name'] #
+# df_apt_final['extra_item_price'] = df2['extra_item_price'] #
+# df_apt_final['extra_item_status'] = df2['extra_item_status'] #
+# df_apt_final['extra_item_payment_method'] = df2['extra_item_payment_method'] #
 
-df_apt_final['Item Name Group'] = df2['item_name_group']
+# df_apt_final['Item Name Group'] = df2['item_name_group']
 df_apt_final['Item SKU'] = np.where(df2['item_id'].isna(), '', df2['Clinic ID'].astype('Int64').astype(str) + '_' + df2['item_id'].astype('Int64').astype(str))
-df_apt_final['Item Unit Price'] = df2['item_price'] #
+df_apt_final['Item Unit Price'] = df2['item_price']
 
 df_apt_final['Item Quantity'] = df2['item_quantity'].astype(float).astype('Int64')
 df_apt_final['Item Subtotal'] = df2['item_total']
-df_apt_final['Nurse Fee'] = df2['Nurse Fee'].sort_values().fillna(0).astype(str).astype('Int64')
+df_apt_final['Nurse Fee'] = df2['Nurse Fee'].astype('Int64')
 df_apt_final['Tax Rate'] = np.nan
 df_apt_final['Tax Total'] = np.nan
 df_apt_final['Discount Rate'] = np.nan
 df_apt_final['Discount Total'] = np.nan
-df_apt_final['Order Total'] = df2['original_fee'].astype(float).astype('Int64') + df2['extra_fee_requested'].astype('Int64')
+df_apt_final['Order Total'] = (
+    df2['original_fee'].astype(float).astype('Int64')
+    + df2['extra_fee_requested'].astype('Int64')
+    )
 
 df_apt_final['COGS Per Unit'] = np.nan
 df_apt_final['COGS Total (including packaging)'] = np.nan

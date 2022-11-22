@@ -67,5 +67,5 @@ domo.update_gsheet(sh_url, df_3)
 # format sheet
 sh = domo.get_google_cred().open_by_url(sh_url).get_worksheet(0)
 sh.format(['J', 'Q'], {'numberFormat': {'type': 'DATE', 'pattern': 'dd/mm/yyyy'}})
-sh.format(['U', 'AC'], {'numberFormat': {'type': 'DATE_TIME', 'pattern': 'dd/mm/yyyy hh:mm:ss'}})
-sh.format(['BN', 'BO'], {'numberFormat': {'type': 'NUMBER', 'pattern': '?#'}})
+sh.format(['V', 'AC'], {'numberFormat': {'type': 'DATE_TIME', 'pattern': 'dd/mm/yyyy hh:mm:ss'}})
+# sh.format(['BN', 'BO'], {'numberFormat': {'type': 'NUMBER', 'pattern': '?#'}})

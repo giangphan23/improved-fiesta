@@ -1,3 +1,4 @@
+-- Active: 1665389269043@@docosandynamic.c1lsds8lkx7p.ap-southeast-1.rds.amazonaws.com@3306@docosandynamic
 -- Initial SQL
 
 SET SESSION GROUP_CONCAT_MAX_LEN = 1000000;
@@ -124,6 +125,15 @@ FROM (
                     NULL
                 )
             ) original_fee_status,
+
+            -- item_detail
+            GROUP_CONCAT(i.item_detail) item_detail,
+            -- payment_method
+            GROUP_CONCAT(i.payment_method) payment_method,
+            -- status
+            GROUP_CONCAT(i.status) `status`,
+
+
             GROUP_CONCAT(
                 IF(
                     i.type = 'appointment',
@@ -156,14 +166,6 @@ FROM (
             GROUP_CONCAT(
                 IF(
                     i.type = 'extra_apt',
-                    JSON_UNQUOTE(i.item_detail ->> '$.items.services.extra'),
-                    NULL
-                )
-            ) extra_fee_details
-/*
-            GROUP_CONCAT(
-                IF(
-                    i.type = 'extra_apt',
                     CONCAT_WS(
                         ' | ',
                         JSON_UNQUOTE(
@@ -192,9 +194,10 @@ FROM (
                     ),
                     NULL
                 )
-                ORDER BY
-                    i.id ASC SEPARATOR ';\n'
+                ORDER BY i.id ASC
+                SEPARATOR ';\n'
             ) AS extra_fee_details,
+
 
             -- extra details
             GROUP_CONCAT(
@@ -206,7 +209,7 @@ FROM (
             GROUP_CONCAT(
                 IF(i.type = 'extra_apt',
                 i.item_detail ->> '$.items.services.extra.price',
-                NULL)
+                NULL) SEPARATOR ';'
             ) extra_item_price,
 
             GROUP_CONCAT(
@@ -237,7 +240,6 @@ FROM (
                 END,
                 NULL)
             ) extra_item_payment_method
-*/
 
 
         FROM invoices i

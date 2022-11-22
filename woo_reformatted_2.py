@@ -291,8 +291,8 @@ woo_df_final['item_sku'].replace('744_nan_.*', '', regex=True, inplace=True)
 # process woo data for finance
 
 df_woo_final = pd.DataFrame(index=woo_df_final.index)
-df_woo_final['Order ID'] = 'W' + woo_df_final.index.astype('Int64').astype(str)
-df_woo_final['Order Number'] = woo_df_final.index.astype('Int64').astype(str)
+df_woo_final['Order ID'] = 'W' + woo_df_final.order_id.astype('Int64').astype(str)
+df_woo_final['Order Number'] = woo_df_final.order_id.astype('Int64').astype(str)
 df_woo_final['Source'] = 'Woo'
 df_woo_final['Patient ID'] = woo_df_final['_billing_phone_cleaned'].values
 df_woo_final['Booked For'] = (woo_df_final['_shipping_first_name'] + ' ' + woo_df_final['_shipping_last_name']).str.strip()
@@ -342,7 +342,10 @@ df_woo_final['Tax Total'] = woo_df_final['total_tax'].astype('Int64')
 # df_woo_final['Tax Rate'] = 0
 df_woo_final['Discount Rate'] = woo_df_final['coupon_rate']
 df_woo_final['Discount Fixed Amount'] = woo_df_final['coupon_amount']
-df_woo_final['Discount Total'] = df_woo_final['Discount Rate'] * df_woo_final['Item Subtotal'] + df_woo_final['Discount Fixed Amount']
+df_woo_final['Discount Total'] = (
+    df_woo_final['Discount Rate'].fillna(0) * df_woo_final['Item Subtotal']
+    + df_woo_final['Discount Fixed Amount'].fillna(0)
+    )
 df_woo_final['Refund Amount'] = woo_df_final['_refund_amount'].astype('Int64')
 df_woo_final['Refund Reason'] = woo_df_final['_refund_reason']
 df_woo_final['Order Total'] = (
