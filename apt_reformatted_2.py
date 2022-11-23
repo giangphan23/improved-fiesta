@@ -1,3 +1,7 @@
+import numpy as np
+import pandas as pd
+import docosan_module as domo
+import json
 
 # extract data
 inv_file_path = 'SQL/Epaid Appointment Invoices.sql'
@@ -17,9 +21,6 @@ df1.sort_values('Appointment ID', ascending=False, inplace=True)
 #####################################################################
 # extra
 
-# test
-ls = [48044,43435,46888,47139,47820,47957,48516,48648,48673,48707,48734,2972]
-
 #
 df1_with_item = df1[df1.item_detail.notna()].sort_values('Create Date')
 ls = df1_with_item['Appointment ID'].unique()
@@ -29,6 +30,7 @@ item_df = pd.DataFrame()
 for i in ls:
     # i = 48044 dict
     # i = 46888 tuple
+    # i = 48853 tuple
     items = df1_with_item[df1_with_item['Appointment ID']==i]['item_detail'].tolist()[0]
     payment_methods = df1_with_item[df1_with_item['Appointment ID']==i]['payment_method'].str.split(',').tolist()[0]
     payment_status = df1_with_item[df1_with_item['Appointment ID']==i]['status'].str.split(',').tolist()[0]
@@ -46,7 +48,7 @@ for i in ls:
         pass
 
     elif type(items) == tuple:
-        for item, payment_method in zip(items, payment_methods):
+        for item, payment_method, payment_status in zip(items, payment_methods, payment_status):
             # print(item, payment_method, '\n')
             try:
                 item_ori_ = pd.json_normalize(item, ['items','services'])
@@ -114,7 +116,7 @@ for i in ls:
         pass
 
     item_df = pd.concat([item_df, item_ori_df, item_sale_df, item_extra_df], axis=0)
-item_df
+
 
 
 item_df = item_df.add_prefix('item_')
@@ -163,17 +165,18 @@ df2['original_payment_method'] = df2['original_payment_method'].replace({
 }).fillna('At Clinic')
 
 
-# item grouping
-col = ['Appointment ID', 'Reason', 'item_name']
-gr1 = df2.loc[df2['Type Report'].str.contains('Cares Actual'), col].drop_duplicates(subset='item_name').sort_values('Appointment ID')
-# domo.update_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/', gr1) # manual grouping in gsheet
-gr1_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').iloc[:, 2:4].dropna(subset='item_name')
-df2 = pd.merge(df2, gr1_filled, how='left', left_on='item_name', right_on='item_name', )
+# # item grouping
+# col = ['Appointment ID', 'Reason', 'item_name']
+# gr1 = df2.loc[df2['Type Report'].str.contains('Cares Actual'), col].drop_duplicates(subset='item_name').sort_values('Appointment ID')
+# # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/', gr1) # manual grouping in gsheet
+# gr1_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').iloc[:, 2:4].dropna(subset='item_name')
+# df2 = pd.merge(df2, gr1_filled, how='left', left_on='item_name', right_on='item_name', )
 
-gr2 = df2.loc[(df2['Type Report'].str.contains('Cares Actual')) & (df2['item_name'].isna()), col]
-# domo.update_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/', gr2) # manual grouping in gsheet
-gr2_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/').iloc[:,[0,3]].dropna(subset='item_name_group')
-df2.loc[df2['Appointment ID'].isin(gr2_filled['Appointment ID']), 'item_name_group'] = gr2_filled['item_name_group'].values
+# gr2 = df2.loc[(df2['Type Report'].str.contains('Cares Actual')) & (df2['item_name'].isna()), col]
+# # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/', gr2) # manual grouping in gsheet
+# gr2_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/').iloc[:,[0,3]].dropna(subset='item_name_group')
+
+# df2.loc[df2['Appointment ID'].isin(gr2_filled['Appointment ID']), 'item_name_group'] = gr2_filled['item_name_group'].values
 
 
 #####################################################################
@@ -207,24 +210,16 @@ df_apt_final['Mode'] = df2['Appointment Mode']
 df_apt_final['Apt Status'] = df2['Status']
 df_apt_final['Order Status'] = ''
 df_apt_final['Lab Status'] = df2['Lab Status']
-df_apt_final['Payment Method'] = df2['item_payment_method'] #
-
+df_apt_final['Payment Method'] = df2['item_payment_method']
 df_apt_final['Payment ID'] = df2['epaid_id']
 df_apt_final['Payment Date'] = df2['original_payment_date']
-df_apt_final['Payment Status'] = df2['item_payment_status'] #
-
+df_apt_final['Payment Status'] = df2['item_payment_status']
 df_apt_final['Shipping Total'] = np.nan
 df_apt_final['Item ID'] = df2['item_id']
-df_apt_final['Item Name VI'] = df2['item_name'] #
-# df_apt_final['extra_item_name'] = df2['extra_item_name'] #
-# df_apt_final['extra_item_price'] = df2['extra_item_price'] #
-# df_apt_final['extra_item_status'] = df2['extra_item_status'] #
-# df_apt_final['extra_item_payment_method'] = df2['extra_item_payment_method'] #
-
+df_apt_final['Item Name VI'] = df2['item_name']
 # df_apt_final['Item Name Group'] = df2['item_name_group']
 df_apt_final['Item SKU'] = np.where(df2['item_id'].isna(), '', df2['Clinic ID'].astype('Int64').astype(str) + '_' + df2['item_id'].astype('Int64').astype(str))
 df_apt_final['Item Unit Price'] = df2['item_price']
-
 df_apt_final['Item Quantity'] = df2['item_quantity'].astype(float).astype('Int64')
 df_apt_final['Item Subtotal'] = df2['item_total']
 df_apt_final['Nurse Fee'] = df2['Nurse Fee'].astype('Int64')
@@ -233,8 +228,8 @@ df_apt_final['Tax Total'] = np.nan
 df_apt_final['Discount Rate'] = np.nan
 df_apt_final['Discount Total'] = np.nan
 df_apt_final['Order Total'] = (
-    df2['original_fee'].astype(float).astype('Int64')
-    + df2['extra_fee_requested'].astype('Int64')
+    df2['original_fee'].astype(float).astype('Int64').fillna(0)
+    + df2['extra_fee_requested'].astype('Int64').fillna(0)
     )
 
 df_apt_final['COGS Per Unit'] = np.nan
@@ -259,3 +254,8 @@ df_apt_final['Platform'] = df2['Platform']
 
 
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', df_apt_final)
+
+df_apt_final.loc[df_apt_final['Order Number']==48564, 'Order Total']
+
+
+
