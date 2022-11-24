@@ -28,9 +28,9 @@ ls = df1_with_item['Appointment ID'].unique()
 # pivot item_detail
 item_df = pd.DataFrame()
 for i in ls:
-    # i = 48044 dict
-    # i = 46888 tuple
-    # i = 48853 tuple
+    # dict: i = 48105
+    # tuple: i = 46888
+    # tuple: i = 48853
     items = df1_with_item[df1_with_item['Appointment ID']==i]['item_detail'].tolist()[0]
     payment_methods = df1_with_item[df1_with_item['Appointment ID']==i]['payment_method'].str.split(',').tolist()[0]
     payment_status = df1_with_item[df1_with_item['Appointment ID']==i]['status'].str.split(',').tolist()[0]
@@ -58,7 +58,6 @@ for i in ls:
                 item_ori_df = pd.concat([item_ori_df, item_ori_])
             except:
                 pass
-                # item_ori_df = None
 
             try:
                 item_sale_ = pd.json_normalize(item, ['items','sale_services'])
@@ -68,7 +67,6 @@ for i in ls:
                 item_sale_df = pd.concat([item_sale_df, item_sale_])
             except:
                 pass
-                # item_sale_df = None
 
             try:
                 item_extra_ = item['items']['services']['extra']
@@ -77,10 +75,10 @@ for i in ls:
                 item_extra_['apt_id'] = i
                 item_extra_['payment_method'] = payment_method
                 item_extra_['payment_status'] = payment_status
+                item_extra_['quantity'] = 1
                 item_extra_df = pd.concat([item_extra_df, item_extra_])
             except:
                 pass
-                # item_extra_df = None
 
     elif type(items) == dict:
         try:
@@ -90,7 +88,6 @@ for i in ls:
             item_ori_df['payment_status'] = payment_status
         except:
             pass
-            #            item_ori_df = None
 
         try:
             item_sale_df = pd.json_normalize(items, ['items','sale_services'])
@@ -99,7 +96,6 @@ for i in ls:
             item_sale_df['payment_status'] = payment_status
         except:
             pass
-            #            item_sale_df = None
 
         try:
             item_extra_ = items['items']['services']['extra']
@@ -108,10 +104,10 @@ for i in ls:
             item_extra_['apt_id'] = i
             item_extra_['payment_method'] = payment_method
             item_extra_df['payment_status'] = payment_status
+            item_extra_['quantity'] = 1
             item_extra_df = pd.concat([item_extra_df, item_extra_])
         except:
             pass
-            #            item_extra_df = None
     else:
         pass
 
@@ -120,16 +116,9 @@ for i in ls:
 
 
 item_df = item_df.add_prefix('item_')
-item_df = item_df.rename(columns={'item_apt_id':'Appointment ID'})
-# domo.update_gsheet('https://docs.google.com/spreadsheets/d/18684kd96cTbeJ9ES74tmac8KjMiEpGxj3jYjPy8lAB4/edit#gid=0', item_df)
+# item_df = item_df.rename(columns={'item_apt_id':'Appointment ID'})
 
-
-#
-# df2 = df1[df1.item_detail.isna()].join(item_df.set_index('item_apt_id'), on='Appointment ID')
-
-df1_with_item = df1_with_item.join(item_df.set_index('Appointment ID'), on='Appointment ID')
-# df1_with_item.original_payment_method
-# df1_with_item.extra_item_payment_method
+df1_with_item = df1_with_item.join(item_df.set_index('item_apt_id'), on='Appointment ID')
 
 df1_no_item = df1[df1.item_detail.isna()]
 df2 = pd.concat([df1_no_item, df1_with_item])
@@ -219,9 +208,9 @@ df_apt_final['Item ID'] = df2['item_id']
 df_apt_final['Item Name VI'] = df2['item_name']
 # df_apt_final['Item Name Group'] = df2['item_name_group']
 df_apt_final['Item SKU'] = np.where(df2['item_id'].isna(), '', df2['Clinic ID'].astype('Int64').astype(str) + '_' + df2['item_id'].astype('Int64').astype(str))
-df_apt_final['Item Unit Price'] = df2['item_price']
-df_apt_final['Item Quantity'] = df2['item_quantity'].astype(float).astype('Int64')
-df_apt_final['Item Subtotal'] = df2['item_total']
+df_apt_final['Item Unit Price'] = df2['item_price'].astype(float).astype('Int64').fillna(0)
+df_apt_final['Item Quantity'] = df2['item_quantity'].astype(float).astype('Int64').fillna(0)
+df_apt_final['Item Subtotal'] = df_apt_final['Item Unit Price'] * df_apt_final['Item Quantity']
 df_apt_final['Nurse Fee'] = df2['Nurse Fee'].astype('Int64')
 df_apt_final['Tax Rate'] = np.nan
 df_apt_final['Tax Total'] = np.nan
@@ -250,12 +239,14 @@ df_apt_final['Company Name'] = ''
 df_apt_final['Email'] = ''
 df_apt_final['Address'] = ''
 df_apt_final['Platform'] = df2['Platform']
+df_apt_final['Cluster Name'] = df2['Cluster Name']
 
 
 
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', df_apt_final)
 
-df_apt_final.loc[df_apt_final['Order Number']==48564, 'Order Total']
+# df_apt_final.loc[df_apt_final['Order Number']==48105, 'Item ID':'Order Total']
+
 
 
 
