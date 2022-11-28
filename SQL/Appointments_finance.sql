@@ -117,7 +117,9 @@ SELECT
     END
     AS 'Lab Status',
   a.mpp_finance ->> '$.nurse_fee' AS 'Nurse Fee',
-  IF(mpp_finance ->> '$.b2b' = 1, "Yes", "No") AS 'B2B'
+  IF(mpp_finance ->> '$.b2b' = 1, "Yes", "No") AS 'B2B',
+  a.extra_info ->> '$.app_type' AS 'Platform',
+  a.patient_address AS 'Patient Address'
 --   c.map_url AS 'Clinic Map URL'
 
 
