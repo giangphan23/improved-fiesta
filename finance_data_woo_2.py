@@ -264,10 +264,12 @@ woo_df_1['_billing_phone_cleaned'] = domo.clean_phone_number(woo_df_1['_billing_
 conditions = [
     woo_df_1['status'].str.contains('completed|cod-completed|tele-pending|customer-testing|tvlk-completed|outfordelivery|lab-testing'),
     woo_df_1['status'].str.contains('failed|cancelled|refunded|cod-rejected|processing|pending|on-hold'),
+    woo_df_1['status'].str.contains('auto-draft|trash'),
     ]
 choices = [
     'Cares Actual',
     'Cares Adjustment',
+    'None Adjustment',
     ]
 woo_df_1['Type Report'] = np.select(conditions, choices, default='')
 
@@ -294,10 +296,16 @@ woo_df_1['_payment_method'] = woo_df_1['_payment_method'].replace({
 }).fillna('')
 
 # SKU
+woo_df_1['item_sku'] = woo_df_1['category_id'].astype(str) + '_' + woo_df_1['product_id'].astype('Int64').astype(str)
+woo_df_1['item_sku'] = np.where(woo_df_1['item_sku'].str.contains('163'), '684_' + woo_df_1['item_sku'], '744_' + woo_df_1['item_sku'])
+woo_df_1['item_sku'].replace('744_nan_.*', '', regex=True, inplace=True)
+
+
+
+#####################################################################
+# READY
 woo_df_ready = woo_df_1.copy()
-woo_df_ready['item_sku'] = woo_df_ready['category_id'].astype(str) + '_' + woo_df_ready['product_id'].astype('Int64').astype(str)
-woo_df_ready['item_sku'] = np.where(woo_df_ready['item_sku'].str.contains('163'), '684_' + woo_df_ready['item_sku'], '744_' + woo_df_ready['item_sku'])
-woo_df_ready['item_sku'].replace('744_nan_.*', '', regex=True, inplace=True)
+
 
 
 #####################################################################

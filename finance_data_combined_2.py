@@ -57,10 +57,17 @@ cols = ['Item Unit Price', 'Item Quantity', 'Item Subtotal']
 for c in cols:
     df_3[c] = df_3[c].astype('Int64')
 
+
+
+#####################################################################
+# READY
+df_combined_ready = df_3.copy()
+df_combined_ready['Payment Method'].unique()
+
 #####################################################################
 # LOAD
 sh_url = 'https://docs.google.com/spreadsheets/d/15zCrCorhPjt5358LHnPili2oXcn5jAVn0epy1ab-7fE/'
-domo.update_gsheet(sh_url, df_3)
+domo.update_gsheet(sh_url, df_combined_ready)
 
 
 # format sheet
@@ -68,4 +75,5 @@ sh = domo.get_google_cred().open_by_url(sh_url).get_worksheet(0)
 sh.format(['J', 'Q'], {'numberFormat': {'type': 'DATE', 'pattern': 'dd/mm/yyyy'}})
 sh.format(['V', 'AC'], {'numberFormat': {'type': 'DATE_TIME', 'pattern': 'dd/mm/yyyy hh:mm:ss'}})
 # sh.format(['BN', 'BO'], {'numberFormat': {'type': 'NUMBER', 'pattern': '?#'}})
+
 

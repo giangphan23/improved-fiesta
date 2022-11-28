@@ -20,8 +20,6 @@ df1.sort_values('Appointment ID', ascending=False, inplace=True)
 
 #####################################################################
 # extra items
-
-#
 df1_with_item = df1[df1.item_detail.notna()].sort_values('Create Date')
 ls = df1_with_item['Appointment ID'].unique()
 
@@ -30,10 +28,10 @@ item_df = pd.DataFrame()
 for i in ls:
     # dict: i = 48105
     # tuple: i = 46888
-    # tuple: i = 48853
+    # tuple: i = 48673
     items = df1_with_item[df1_with_item['Appointment ID']==i]['item_detail'].tolist()[0]
     payment_methods = df1_with_item[df1_with_item['Appointment ID']==i]['payment_method'].str.split(',').tolist()[0]
-    payment_status = df1_with_item[df1_with_item['Appointment ID']==i]['status'].str.split(',').tolist()[0]
+    payment_statuses = df1_with_item[df1_with_item['Appointment ID']==i]['status'].str.split(',').tolist()[0]
     try:
         items = eval(items)
     except:
@@ -48,8 +46,7 @@ for i in ls:
         pass
 
     elif type(items) == tuple:
-        for item, payment_method, payment_status in zip(items, payment_methods, payment_status):
-            # print(item, payment_method, '\n')
+        for item, payment_method, payment_status in zip(items, payment_methods, payment_statuses):
             try:
                 item_ori_ = pd.json_normalize(item, ['items','services'])
                 item_ori_['apt_id'] = i
@@ -84,16 +81,16 @@ for i in ls:
         try:
             item_ori_df = pd.json_normalize(items, ['items','services'])
             item_ori_df['apt_id'] = i
-            item_ori_df['payment_method'] = payment_method
-            item_ori_df['payment_status'] = payment_status
+            item_ori_df['payment_method'] = payment_methods[0]
+            item_ori_df['payment_status'] = payment_statuses[0]
         except:
             pass
 
         try:
             item_sale_df = pd.json_normalize(items, ['items','sale_services'])
             item_sale_df['apt_id'] = i
-            item_sale_df['payment_method'] = payment_method
-            item_sale_df['payment_status'] = payment_status
+            item_sale_df['payment_method'] = payment_methods[0]
+            item_sale_df['payment_status'] = payment_statuses[0]
         except:
             pass
 
@@ -102,8 +99,8 @@ for i in ls:
             item_extra_ = pd.json_normalize(item_extra_)
             item_extra_['id'] = 0
             item_extra_['apt_id'] = i
-            item_extra_['payment_method'] = payment_method
-            item_extra_df['payment_status'] = payment_status
+            item_extra_['payment_method'] = payment_methods[0]
+            item_extra_df['payment_status'] = payment_statuses[0]
             item_extra_['quantity'] = 1
             item_extra_df = pd.concat([item_extra_df, item_extra_])
         except:
@@ -113,14 +110,10 @@ for i in ls:
 
     item_df = pd.concat([item_df, item_ori_df, item_sale_df, item_extra_df], axis=0)
 
-
-
 item_df = item_df.add_prefix('item_')
-# item_df = item_df.rename(columns={'item_apt_id':'Appointment ID'})
-
 df1_with_item = df1_with_item.join(item_df.set_index('item_apt_id'), on='Appointment ID')
-
 df1_no_item = df1[df1.item_detail.isna()]
+
 df2 = pd.concat([df1_no_item, df1_with_item])
 
 #####################################################################
@@ -145,13 +138,20 @@ choices = [
 df2['Type Report'] = np.select(conditions, choices, default='')
 
 
-# replace values in original_payment_method
-df2['original_payment_method'] = df2['original_payment_method'].replace({
-    'Bank transfer': 'Bank Transfer',
+# replace values in item_payment_method
+df2['item_payment_method'] = df2['item_payment_method'].replace({
+    'local_banking': 'Bank Transfer',
     'cod': 'COD',
-    'internet_banking': 'Zalopay',
-    'Onepay': 'OnePay'
-}).fillna('At Clinic')
+    'zalopay_atm': 'Zalopay',
+    'zalopay': 'Zalopay',
+    'zalopay_cc': 'Zalopay',
+    'momo': 'Momo',
+    'onepay': 'Onepay',
+    'onepay_atm': 'Onepay',
+    'free_paid': 'Free',
+    'mpp_guaranteed': 'MPP',
+    'internet_banking': 'Zalopay'
+    }).fillna('At Clinic')
 
 
 # # item grouping
@@ -167,62 +167,70 @@ df2['original_payment_method'] = df2['original_payment_method'].replace({
 
 # df2.loc[df2['Appointment ID'].isin(gr2_filled['Appointment ID']), 'item_name_group'] = gr2_filled['item_name_group'].values
 
+#####################################################################
 # travel fee
-df2['Patient Address'].dropna()
-null = None
-pd.json_normalize(eval(df2.loc[37767,'Patient Address']))
+# df2['Patient Address'].dropna()
+# null = None
+# pd.json_normalize(eval(df2.loc[37767,'Patient Address']))
+
+
+
+#####################################################################
+# READY
+df_apt_ready = df2.copy()
+
 
 #####################################################################
 # process apt data for finance
 
 df_apt_final = pd.DataFrame()
-df_apt_final['Order ID'] = 'A' + df2['Appointment ID'].astype(str)
-df_apt_final['Order Number'] = df2['Appointment ID']
+df_apt_final['Order ID'] = 'A' + df_apt_ready['Appointment ID'].astype(str)
+df_apt_final['Order Number'] = df_apt_ready['Appointment ID']
 df_apt_final['Source'] = 'Appointment'
-df_apt_final['Patient ID'] = df2['Patient ID'].astype('Int64').astype(str)
-df_apt_final['Booked For'] = df2['Requester']
-df_apt_final['Agent ID'] = df2['agent_id']
-df_apt_final['Agent Name'] = df2['agent_name']
-df_apt_final['Booked By'] = df2['Patient Name']
-df_apt_final['Phone Number'] = df2['Phone Number']
-# df_apt_final['Phone Number'] = domo.clean_phone_number(df2['Phone Number'])
-df_apt_final['Birthday'] = df2['Patient Birthday']
-df_apt_final['Gender'] = df2['Patient Gender']
-df_apt_final['Cluster ID'] = df2['Cluster ID']
-df_apt_final['Clinic ID'] = df2['Clinic ID']
-df_apt_final['Clinic Name'] = df2['Clinic Name']
-df_apt_final['Doctor ID'] = df2['Doctor ID']
-df_apt_final['Doctor Name'] = np.where(df2['graduate_id']!=13, df2['Doctor Name'], '')
-df_apt_final['Schedule Date'] = df2['Appointment Date']
-df_apt_final['Schedule Time'] = df2['Appointment Time']
-df_apt_final['Note'] = df2['Reason']
-df_apt_final['Nurse Name'] = np.where(df2['graduate_id']==13, df2['Doctor Name'], '')
-df_apt_final['Delivery Status'] = df2['Show/No-show']
-df_apt_final['Create Date'] = df2['Create Date']
-df_apt_final['Mode'] = df2['Appointment Mode']
-df_apt_final['Apt Status'] = df2['Status']
+df_apt_final['Patient ID'] = df_apt_ready['Patient ID'].astype('Int64').astype(str)
+df_apt_final['Booked For'] = df_apt_ready['Requester']
+df_apt_final['Agent ID'] = df_apt_ready['agent_id']
+df_apt_final['Agent Name'] = df_apt_ready['agent_name']
+df_apt_final['Booked By'] = df_apt_ready['Patient Name']
+df_apt_final['Phone Number'] = df_apt_ready['Phone Number']
+# df_apt_final['Phone Number'] = domo.clean_phone_number(df_apt_ready['Phone Number'])
+df_apt_final['Birthday'] = df_apt_ready['Patient Birthday']
+df_apt_final['Gender'] = df_apt_ready['Patient Gender']
+df_apt_final['Cluster ID'] = df_apt_ready['Cluster ID']
+df_apt_final['Clinic ID'] = df_apt_ready['Clinic ID']
+df_apt_final['Clinic Name'] = df_apt_ready['Clinic Name']
+df_apt_final['Doctor ID'] = df_apt_ready['Doctor ID']
+df_apt_final['Doctor Name'] = np.where(df_apt_ready['graduate_id']!=13, df_apt_ready['Doctor Name'], '')
+df_apt_final['Schedule Date'] = df_apt_ready['Appointment Date']
+df_apt_final['Schedule Time'] = df_apt_ready['Appointment Time']
+df_apt_final['Note'] = df_apt_ready['Reason']
+df_apt_final['Nurse Name'] = np.where(df_apt_ready['graduate_id']==13, df_apt_ready['Doctor Name'], '')
+df_apt_final['Delivery Status'] = df_apt_ready['Show/No-show']
+df_apt_final['Create Date'] = df_apt_ready['Create Date']
+df_apt_final['Mode'] = df_apt_ready['Appointment Mode']
+df_apt_final['Apt Status'] = df_apt_ready['Status']
 df_apt_final['Order Status'] = ''
-df_apt_final['Lab Status'] = df2['Lab Status']
-df_apt_final['Payment Method'] = df2['item_payment_method']
-df_apt_final['Payment ID'] = df2['epaid_id']
-df_apt_final['Payment Date'] = df2['original_payment_date']
-df_apt_final['Payment Status'] = df2['item_payment_status']
+df_apt_final['Lab Status'] = df_apt_ready['Lab Status']
+df_apt_final['Payment Method'] = df_apt_ready['item_payment_method']
+df_apt_final['Payment ID'] = df_apt_ready['epaid_id']
+df_apt_final['Payment Date'] = df_apt_ready['original_payment_date']
+df_apt_final['Payment Status'] = df_apt_ready['item_payment_status']
 df_apt_final['Shipping Total'] = np.nan
-df_apt_final['Item ID'] = df2['item_id']
-df_apt_final['Item Name VI'] = df2['item_name']
-# df_apt_final['Item Name Group'] = df2['item_name_group']
-df_apt_final['Item SKU'] = np.where(df2['item_id'].isna(), '', df2['Clinic ID'].astype('Int64').astype(str) + '_' + df2['item_id'].astype('Int64').astype(str))
-df_apt_final['Item Unit Price'] = df2['item_price'].astype(float).astype('Int64').fillna(0)
-df_apt_final['Item Quantity'] = df2['item_quantity'].astype(float).astype('Int64').fillna(0)
+df_apt_final['Item ID'] = df_apt_ready['item_id']
+df_apt_final['Item Name VI'] = df_apt_ready['item_name']
+# df_apt_final['Item Name Group'] = df_apt_ready['item_name_group']
+df_apt_final['Item SKU'] = np.where(df_apt_ready['item_id'].isna(), '', df_apt_ready['Clinic ID'].astype('Int64').astype(str) + '_' + df_apt_ready['item_id'].astype('Int64').astype(str))
+df_apt_final['Item Unit Price'] = df_apt_ready['item_price'].astype(float).astype('Int64').fillna(0)
+df_apt_final['Item Quantity'] = df_apt_ready['item_quantity'].astype(float).astype('Int64').fillna(0)
 df_apt_final['Item Subtotal'] = df_apt_final['Item Unit Price'] * df_apt_final['Item Quantity']
-df_apt_final['Nurse Fee'] = df2['Nurse Fee'].astype('Int64')
+df_apt_final['Nurse Fee'] = df_apt_ready['Nurse Fee'].astype('Int64')
 df_apt_final['Tax Rate'] = np.nan
 df_apt_final['Tax Total'] = np.nan
 df_apt_final['Discount Rate'] = np.nan
 df_apt_final['Discount Total'] = np.nan
 df_apt_final['Order Total'] = (
-    df2['original_fee'].astype(float).astype('Int64').fillna(0)
-    + df2['extra_fee_requested'].astype('Int64').fillna(0)
+    df_apt_ready['original_fee'].astype(float).astype('Int64').fillna(0)
+    + df_apt_ready['extra_fee_requested'].astype('Int64').fillna(0)
     )
 
 df_apt_final['COGS Per Unit'] = np.nan
@@ -234,16 +242,16 @@ df_apt_final['Reimbursement Total'] = np.nan
 df_apt_final['Telemed Fee Per Unit'] = np.nan
 df_apt_final['Telemed Fee - Total'] = np.nan
 df_apt_final['Margin'] = np.nan
-df_apt_final['B2B'] = df2['B2B']
+df_apt_final['B2B'] = df_apt_ready['B2B']
 df_apt_final['Item Category ID'] = ''
-df_apt_final['Type Report'] = df2['Type Report']
+df_apt_final['Type Report'] = df_apt_ready['Type Report']
 df_apt_final['Currency'] = ''
 df_apt_final['Shipping Method'] = ''
 df_apt_final['Company Name'] = ''
 df_apt_final['Email'] = ''
 df_apt_final['Address'] = ''
-df_apt_final['Platform'] = df2['Platform']
-df_apt_final['Cluster Name'] = df2['Cluster Name']
+df_apt_final['Platform'] = df_apt_ready['Platform']
+df_apt_final['Cluster Name'] = df_apt_ready['Cluster Name']
 
 
 
