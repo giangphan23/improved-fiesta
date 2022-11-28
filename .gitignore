@@ -4,6 +4,7 @@ Scripts/
 share/
 __pycache__/
 LC/
+data/
 
 *.pkl
 *.csv
