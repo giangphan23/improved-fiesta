@@ -1,7 +1,3 @@
--- Active: 1661854745457@@docosandynamic.c1lsds8lkx7p.ap-southeast-1.rds.amazonaws.com@3306@docosandynamic
--- Initial SQL
-
--- Custom SQL
 SELECT
   a.id AS appointment_id,
   mp.user_id AS agent_id,
@@ -18,8 +14,8 @@ FROM appointments a
   JOIN master_patient mp
     ON el.created_by = mp.user_id
 
-WHERE a.request_by_providers = '0'
-AND NOT FIND_IN_SET(a.clinic_id, (SELECT
+WHERE -- a.request_by_providers = '0' AND
+NOT FIND_IN_SET(a.clinic_id, (SELECT
     list_user
   FROM user_exceptions
   WHERE type = 'clinic'))
