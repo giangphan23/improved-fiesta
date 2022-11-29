@@ -123,7 +123,7 @@ prod_df = wp_posts_df.loc[wp_posts_df['post_type'].str.contains('^product'), ['I
 prod_df.set_index('ID', inplace=True)
 
 # product meta - keep relevant keys only
-relevant_keys = '_regular_price|_sale_price|^_stock|^_tax|_wc_review_count|_wc_average_rating|^attribute_|^name_|^nurse_fee|total_sales'
+relevant_keys = '_regular_price|_sale_price|^_stock|^_tax|_wc_review_count|_wc_average_rating|^attribute_|^name_|total_sales'
 prod_meta_df = wp_postmeta_df[~(wp_postmeta_df['meta_key'].str.contains('^fb_'))&(wp_postmeta_df['meta_key'].str.contains(relevant_keys))]
 
 # join product & product meta
@@ -140,7 +140,7 @@ idx = ['product_id', 'post_date', 'post_modified', 'post_type', 'post_title', 'p
 prod_info_df = prod_info_df.dropna(subset='meta_key').pivot(index=idx, columns='meta_key', values='meta_value').reset_index(level=idx[1:]).sort_index(ascending=False)
 
 # rename
-prod_info_df.columns = ['product_created', 'product_updated', 'product_type', 'product_name', 'product_description', 'product_parent', '_regular_price', '_sale_price', '_stock', '_stock_status', '_tax_class', '_tax_status', '_wc_average_rating', '_wc_review_count', 'attribute_gioi-tinh', 'attribute_hinh-thuc-lay-mau', 'attribute_ngon-ngu-huong-dan', 'attribute_tuoi', 'name_en', 'name_vi', 'nurse_fee', 'total_sales']
+prod_info_df.columns = ['product_created', 'product_updated', 'product_type', 'product_name', 'product_description', 'product_parent', '_regular_price', '_sale_price', '_stock', '_stock_status', '_tax_class', '_tax_status', '_wc_average_rating', '_wc_review_count', 'attribute_gioi-tinh', 'attribute_hinh-thuc-lay-mau', 'attribute_ngon-ngu-huong-dan', 'attribute_tuoi', 'name_en', 'name_vi', 'total_sales']
 
 #
 order_product_lookup_df = wp_wc_order_product_lookup_df.loc[:,['order_item_id', 'product_id', 'variation_id']].set_index('product_id')
@@ -203,13 +203,14 @@ items_coupon_info.columns = ['coupon_code', 'order_id']
 items_coupon_info.set_index('order_id', inplace=True)
 
 # nurse-fee
-# add nurse-fee when dev finishes limitting 1 nurse-fee line per order
 items_nurse_fee = items_df[items_df['order_item_type'].isin(['nurse-fee'])]
-items_nurse_fee_info = items_nurse_fee.join(itemmeta_df_pivoted).reset_index().loc[:,['order_id', '_nurse_fee_amount', '_nurse_line_total']].set_index('order_id')
+items_nurse_fee_info = items_nurse_fee.join(itemmeta_df_pivoted).reset_index().loc[:,['order_id', 'order_item_name', '_nurse_fee_amount']].set_index('order_id')
+items_nurse_fee_info = items_nurse_fee_info.rename(columns={'order_item_name':'nurse_name', '_nurse_fee_amount':'nurse_fee'})
+
 
 # join - 1 line_item per row
-item_info_df = items_line_item1.join(items_shipping_info).join(items_coupon_info)
-# item_info_df.info()
+item_info_df = items_line_item1.join(items_shipping_info).join(items_coupon_info).join(items_nurse_fee_info)
+
 
 
 
@@ -331,7 +332,7 @@ df_woo_final['Phone Number'] = woo_df_ready['_billing_phone_cleaned']
 df_woo_final['Schedule Date'] = woo_df_ready['created_at']
 df_woo_final['Schedule Time'] = pd.to_datetime(woo_df_ready['created_at']).dt.strftime('%H:%M:%S')
 df_woo_final['Note'] = woo_df_ready['customer_note']
-# df_woo_final['Nurse Name'] = ''
+df_woo_final['Nurse Name'] = woo_df_ready['nurse_name']
 df_woo_final['Create Date'] = pd.to_datetime(woo_df_ready['created_at'])
 # df_woo_final['Mode'] = ''
 # df_woo_final['Apt Status'] = ''

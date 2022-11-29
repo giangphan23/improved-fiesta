@@ -169,15 +169,20 @@ df2['item_payment_method'] = df2['item_payment_method'].replace({
 
 #####################################################################
 # travel fee
-# df2['Patient Address'].dropna()
-# null = None
-# pd.json_normalize(eval(df2.loc[37767,'Patient Address']))
-
-
+null = None
+df_patient_address = pd.DataFrame()
+for _, r in df2.iterrows(): #print(i, r)
+    if r['Patient Address']:
+        patient_address = pd.json_normalize(eval(r['Patient Address']))
+        patient_address['id'] = r['Appointment ID']
+        df_patient_address = pd.concat([df_patient_address, patient_address])
+    else: pass
+df_patient_address = df_patient_address.drop_duplicates('id').set_index('id')
+df3 = df2.join(df_patient_address['fee_home_visit'], on='Appointment ID')
 
 #####################################################################
 # READY
-df_apt_ready = df2.copy()
+df_apt_ready = df3.copy()
 
 
 #####################################################################
@@ -252,6 +257,7 @@ df_apt_final['Email'] = ''
 df_apt_final['Address'] = ''
 df_apt_final['Platform'] = df_apt_ready['Platform']
 df_apt_final['Cluster Name'] = df_apt_ready['Cluster Name']
+df_apt_final['Travel Fee'] = df_apt_ready['fee_home_visit']
 
 
 
