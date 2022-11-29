@@ -197,8 +197,8 @@ df_apt_final['Booked For'] = df_apt_ready['Requester']
 df_apt_final['Agent ID'] = df_apt_ready['agent_id']
 df_apt_final['Agent Name'] = df_apt_ready['agent_name']
 df_apt_final['Booked By'] = df_apt_ready['Patient Name']
-df_apt_final['Phone Number'] = df_apt_ready['Phone Number']
-# df_apt_final['Phone Number'] = domo.clean_phone_number(df_apt_ready['Phone Number'])
+# df_apt_final['Phone Number'] = df_apt_ready['Phone Number']
+df_apt_final['Phone Number'] = domo.clean_phone_number(df_apt_ready['Phone Number'].reset_index(drop=True))
 df_apt_final['Birthday'] = df_apt_ready['Patient Birthday']
 df_apt_final['Gender'] = df_apt_ready['Patient Gender']
 df_apt_final['Cluster ID'] = df_apt_ready['Cluster ID']
