@@ -154,15 +154,19 @@ df2['item_payment_method'] = df2['item_payment_method'].replace({
     }).fillna('At Clinic')
 
 
-# # item grouping
+# item grouping: filter "Cares Actual" apt and fill in their item_name_group in gsheet manually - need to do once in a while (in bulks)
 # col = ['Appointment ID', 'Reason', 'item_name']
+
+## 1st bulk
 # gr1 = df2.loc[df2['Type Report'].str.contains('Cares Actual'), col].drop_duplicates(subset='item_name').sort_values('Appointment ID')
 # # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/', gr1) # manual grouping in gsheet
 # gr1_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').iloc[:, 2:4].dropna(subset='item_name')
-# df2 = pd.merge(df2, gr1_filled, how='left', left_on='item_name', right_on='item_name', )
 
+## 2nd bulk
+# df2 = pd.merge(df2, gr1_filled, how='left', left_on='item_name', right_on='item_name', )
 # gr2 = df2.loc[(df2['Type Report'].str.contains('Cares Actual')) & (df2['item_name'].isna()), col]
-# # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/', gr2) # manual grouping in gsheet
+# domo.update_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/', gr2) # manual grouping in gsheet
+
 # gr2_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/1ajFHXRIX0wXiHloH7zklrNl2kwipJLbun2I3jYCFT-0/').iloc[:,[0,3]].dropna(subset='item_name_group')
 
 # df2.loc[df2['Appointment ID'].isin(gr2_filled['Appointment ID']), 'item_name_group'] = gr2_filled['item_name_group'].values
@@ -264,7 +268,3 @@ df_apt_final['Travel Fee'] = df_apt_ready['fee_home_visit']
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', df_apt_final)
 
 # df_apt_final.loc[df_apt_final['Order Number']==48105, 'Item ID':'Order Total']
-
-
-
-
