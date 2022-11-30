@@ -6,6 +6,14 @@ import docosan_module as domo
 df_apt = domo.sql_to_df('SQL/Appointments.sql')
 
 ##########################################################
+# Practitioners
+df_practitioners = domo.sql_to_df('SQL/practitioners.sql')
+df_practitioners['Phone'] = domo.clean_phone_number(df_practitioners['Phone'])
+
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1TUuHM2NNpUfFM0R4tVfcAn0I85OLqXnwvrrHfAymhXk/edit#gid=0', df_practitioners)
+
+
+##########################################################
 # Unconfirmed Appointments
 
 col = ['Clinic ID', 'Clinic Name', 'Appointment ID', 'Patient Name', 'Requester', 'Reason', 'Create Date', 'Appointment Date', 'Appointment Time']
@@ -102,4 +110,5 @@ df4.loc[:,['is_new_customer']] = np.where(df4['billing_customer_id_'].notna() & 
 
 # update
 domo.update_gsheet('https://docs.google.com/spreadsheets/d/1lDtzBgyrNa7hCLjZ0S1nWmtHf992V038fckSyRIx6-s/edit#gid=0', df4)
+
 
