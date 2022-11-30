@@ -50,7 +50,8 @@ PHONE_REGEX_PATTERN = r"(\d{10,}|\d{9,}|\d{3,}\s\d{7,}|\d{4,}\s\d{6,}|\d{4,}\s\d
 
 # clean phone number
 def clean_phone_number(series):
-    # series = df2['Phone Number']
+    # series = woo_df_1['_billing_phone']
+    # series = df_apt_ready['Phone Number'].reset_index(drop=True)
     # series = pd.Series(['12027953213', '447975777666', '0707821006', np.nan])
 
     # extract phone_number from ser using PHONE_REGEX_PATTERN; remove non-numeric char
