@@ -5,6 +5,7 @@ share/
 __pycache__/
 LC/
 data/
+pickles/
 
 *.pkl
 *.csv

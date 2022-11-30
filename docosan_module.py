@@ -479,9 +479,104 @@ def close_ssh_tunnel():
 
     tunnel.close
 
-#######################################33
+#######################################
 
-# pivoting original_fee_details
+
+def pivot_item_detail(df):
+    # initiate df to contain pivoted data
+    item_df = pd.DataFrame()
+
+    for _, r in df.iterrows():
+        # dict: i = 31607; r = df.loc[i]
+        # tuple: i = 34181; r = df.loc[i]
+        # tuple: i = 35401; r = df.loc[i]
+
+        # initiate df to contain pivoted data
+        item_ori_df = pd.DataFrame()
+        item_sale_df = pd.DataFrame()
+        item_extra_df = pd.DataFrame()
+
+        # put each item, its payment_method & status into
+        null = None
+        apt_id = r['Appointment ID']
+        items = eval(r['item_detail'])
+        payment_methods = r['payment_method'].split(',') if r['payment_method'] else ''
+        payment_statuses = r['status'].split(',')
+
+        if isinstance(items, dict):
+            items = tuple((items,))
+
+        for item, payment_method, payment_status in zip(items, payment_methods, payment_statuses): #print(item, payment_method, payment_status, sep='\n\n')
+            try:
+                item_ori_ = pd.json_normalize(item, ['items','services'])
+                item_ori_['apt_id'] = apt_id
+                item_ori_['payment_method'] = payment_method
+                item_ori_['payment_status'] = payment_status
+                item_ori_df = pd.concat([item_ori_df, item_ori_])
+            except:
+                pass
+
+            try:
+                item_sale_ = pd.json_normalize(item, ['items','sale_services'])
+                item_sale_['apt_id'] = r['Appointment ID']
+                item_sale_['payment_method'] = payment_method
+                item_sale_['payment_status'] = payment_status
+                item_sale_df = pd.concat([item_sale_df, item_sale_])
+            except:
+                pass
+
+            try:
+                item_extra_ = item['items']['services']['extra']
+                item_extra_ = pd.json_normalize(item_extra_)
+                item_extra_['id'] = 0
+                item_extra_['apt_id'] = r['Appointment ID']
+                item_extra_['payment_method'] = payment_method
+                item_extra_['payment_status'] = payment_status
+                item_extra_['quantity'] = 1
+                item_extra_df = pd.concat([item_extra_df, item_extra_])
+            except:
+                pass
+
+        item_df = pd.concat([item_df, item_ori_df, item_sale_df, item_extra_df], axis=0)
+    item_df = item_df.add_prefix('item_')
+    return item_df
+
+
+def create_type_report(df):
+    conditions = [
+        (df['Cluster ID']!=299) & (df['Status'].str.contains('Confirmed|Auto rejected')),
+        (df['Cluster ID']!=299) & ~(df.fillna('')['Status'].str.contains('Confirmed|Auto rejected')),
+        (df['Clinic ID']==615) & (df['Status'].str.contains('Confirmed|Auto rejected')),
+        (df['Clinic ID']==615) & ~(df.fillna('')['Status'].str.contains('Confirmed|Auto rejected')),
+        (df['Clinic ID'].isin([684,744,760,761])) & (df['Status'].str.contains('Confirmed|Auto rejected')),
+        (df['Clinic ID'].isin([684,744,760,761])) & ~(df.fillna('')['Status'].str.contains('Confirmed|Auto rejected')),
+        ]
+    choices = [
+        'Appointment Actual',
+        'Appointment Adjustment',
+        'None Actual',
+        'None Adjustment',
+        'Cares Actual',
+        'Cares Adjustment',
+        ]
+    return np.select(conditions, choices, default='')
+
+
+def get_travel_fee(df):
+    null = None
+    df_patient_address = pd.DataFrame()
+    for _, r in df.iterrows(): #print(i, r)
+        if r['Patient Address']:
+            patient_address = pd.json_normalize(eval(r['Patient Address']))
+            patient_address['apt_id'] = r['Appointment ID']
+            df_patient_address = pd.concat([df_patient_address, patient_address])
+        else: pass
+    df_patient_address = df_patient_address.drop_duplicates('apt_id').set_index('apt_id')
+    return df_patient_address
+
+
+
+
 def pivot_original_fee_details(df: pd.DataFrame):
     df = df.set_index('Appointment ID')
     ls = []
@@ -498,7 +593,7 @@ def pivot_original_fee_details(df: pd.DataFrame):
     ).drop('original_fee_details', axis=1).rename(columns={'index': 'Appointment ID'})
     return df_result
 
-# pivoting shipping
+
 def pivot_shipping(df: pd.DataFrame):
     ls = []
     for row in range(len(df)):
@@ -514,7 +609,7 @@ def pivot_shipping(df: pd.DataFrame):
     df_result = df.join(df_pivoted.set_index('shipping_id'), how='left').drop('shipping', axis=1)
     return df_result
 
-# pivoting shipping_lines
+
 def pivot_shipping_lines(df: pd.DataFrame):
     ls = []
     for row in range(len(df)):
