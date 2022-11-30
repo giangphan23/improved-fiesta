@@ -111,4 +111,3 @@ df4.loc[:,['is_new_customer']] = np.where(df4['billing_customer_id_'].notna() & 
 # update
 domo.update_gsheet('https://docs.google.com/spreadsheets/d/1lDtzBgyrNa7hCLjZ0S1nWmtHf992V038fckSyRIx6-s/edit#gid=0', df4)
 
-
