@@ -90,13 +90,15 @@ domo.update_gsheet('https://docs.google.com/spreadsheets/d/\
 group_df_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/\
     1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').iloc[:,[0,3]].dropna(subset='item_name_group')
 """
-apt_info_df3 = apt_info_df2.join(group_df_filled.set_index('Appointment ID'), on='Appointment ID')
+apt_info_df3 = apt_info_df2.join(group_df_filled.set_index('Appointment ID'),\
+    on='Appointment ID')
 
 
 # travel fee
-patient_address_df = domo.get_travel_fee(apt_info_df3.dropna(subset='Patient Address')
-    .drop_duplicates(subset='Appointment ID'))
-apt_info_df3 = apt_info_df3.join(patient_address_df['fee_home_visit'], on='Appointment ID')
+patient_address_df = domo.get_travel_fee(apt_info_df3.\
+    dropna(subset='Patient Address').drop_duplicates(subset='Appointment ID'))
+apt_info_df3 = apt_info_df3.join(patient_address_df['fee_home_visit'],\
+    on='Appointment ID')
 
 
 #####################################################################
@@ -104,29 +106,43 @@ apt_info_df3 = apt_info_df3.join(patient_address_df['fee_home_visit'], on='Appoi
 # process apt data for finance
 apt_final_df = pd.DataFrame()
 
-apt_final_df['Order ID'] = 'A' + apt_info_df3['Appointment ID'].astype(str)
+apt_final_df['Order ID'] = 'A' + apt_info_df3['Appointment ID'].\
+    astype(str)
+
 apt_final_df['Source'] = 'Appointment'
-apt_final_df['Patient ID'] = apt_info_df3['Patient ID'].astype('Int64').astype(str)
-apt_final_df['Phone Number'] = domo.clean_phone_number(apt_info_df3['Phone Number'].
-    reset_index(drop=True))
-apt_final_df['Doctor Name'] = np.where(apt_info_df3['graduate_id']!=13,
-    apt_info_df3['Doctor Name'], '')
-apt_final_df['Nurse Name'] = np.where(apt_info_df3['graduate_id']==13,
-    apt_info_df3['Doctor Name'], '')
+
+apt_final_df['Patient ID'] = apt_info_df3['Patient ID'].\
+    astype('Int64').astype(str)
+
+apt_final_df['Phone Number'] = domo.clean_phone_number(
+    apt_info_df3['Phone Number'].reset_index(drop=True))
+
+apt_final_df['Doctor Name'] = np.where(
+    apt_info_df3['graduate_id']!=13, apt_info_df3['Doctor Name'], '')
+
+apt_final_df['Nurse Name'] = np.where(
+    apt_info_df3['graduate_id']==13, apt_info_df3['Doctor Name'], '')
+
 apt_final_df['Order Status'] = ''
+
 apt_final_df['Item SKU'] = np.where(apt_info_df3['item_id'].isna(),
     '',
     apt_info_df3['Clinic ID'].astype('Int64').astype(str)
     + '_'
     + apt_info_df3['item_id'].astype('Int64').astype(str)
     )
+
 apt_final_df['Item Unit Price'] = apt_info_df3['item_price'].\
     astype(float).astype('Int64').fillna(0)
+
 apt_final_df['Item Quantity'] = apt_info_df3['item_quantity'].\
     astype(float).astype('Int64').fillna(0)
+
 apt_final_df['Item Subtotal'] = apt_final_df['Item Unit Price'] \
     * apt_final_df['Item Quantity']
+
 apt_final_df['Nurse Fee'] = apt_info_df3['Nurse Fee'].astype('Int64')
+
 apt_final_df['Order Total'] = (
     apt_info_df3['original_fee'].astype(float).astype('Int64').fillna(0)
     + apt_info_df3['extra_fee_requested'].astype('Int64').fillna(0)

@@ -311,6 +311,7 @@ def open_ssh_tunnel(verbose=True):
 
     tunnel.start()
 
+
 # Connect to MySQL via the SSH tunnel
 def mysql_connect():
     """Connect to a MySQL server using the SSH tunnel connection
@@ -368,19 +369,6 @@ def sql_to_df(sql_file_path):
     return df
 
 
-# Connect to WooCommerce MySQL database
-def wooDB_connect():
-
-    global connection
-
-    connection = pymysql.connect(
-        host='13.215.162.252',
-        user='dcscares',
-        passwd='docosancares2022',
-        db='wordpress1'
-    )
-
-
 # execute single SQL query
 def single_SQL_query_to_df(command):
     open_ssh_tunnel()
@@ -401,11 +389,31 @@ def single_SQL_query_to_df(command):
     return df
 
 
-# execute single SQL query
-def woo_single_SQL_query_to_df(command):
+# Disconnect and close the tunnel
+def mysql_disconnect():
+    """Closes the MySQL database connection.
+    """
 
-    # connect db
-    wooDB_connect()
+    connection.close()
+
+def close_ssh_tunnel():
+    """Closes the SSH tunnel connection.
+    """
+
+    tunnel.close
+
+
+########################################################
+# extract data from WP/Woo MySQL database
+########################################################
+
+def extract_woo(command):
+    connection = pymysql.connect(
+        host='13.215.162.252',
+        user='dcscares',
+        passwd='docosancares2022',
+        db='wordpress1'
+    )
 
     try:
         if command != '':
@@ -423,62 +431,8 @@ def woo_single_SQL_query_to_df(command):
     return df
 
 
-# Run your SQL query
-def woo_sql_to_df(sql_file_path):
-    """Runs a given SQL query via the global database connection.
-
-    :param sql: MySQL query
-    :return: Pandas dataframe containing results
-    """
-
-    # connect db
-    wooDB_connect()
-
-    # read sql file
-    fd = open(sql_file_path, 'r')
-    sqlFile = fd.read()
-    fd.close()
-
-    # all SQL commands (split on ';')
-    sqlCommands = sqlFile.split(';\n')
-
-    # execute each command in order
-    try:
-        for command in sqlCommands:
-            # print(command)
-            if command != '':
-                cursor = connection.cursor()
-                cursor.execute(command)
-            else: pass
-            # print(cursor.description)
-        col_name = [col[0] for col in cursor.description]
-        values = cursor.fetchall()
-    except Exception as e:
-        print('This error can be ignored! ' + str(e))
-        raise
-
-    # convert to df
-    df = pd.DataFrame(values, columns=col_name)
-
-    # disconnect
-    mysql_disconnect()
-
-    return df
 
 
-
-# Disconnect and close the tunnel
-def mysql_disconnect():
-    """Closes the MySQL database connection.
-    """
-
-    connection.close()
-
-def close_ssh_tunnel():
-    """Closes the SSH tunnel connection.
-    """
-
-    tunnel.close
 
 #######################################
 

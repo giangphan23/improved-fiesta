@@ -1,180 +1,212 @@
 import numpy as np
 import pandas as pd
+
 import docosan_module as domo
 
 
-##########################################################################
-##########################################################################
+##############################################################################
 # EXTRACT
-
-posts_sql = 'SELECT * FROM wp_posts;'
-wp_posts_df = domo.woo_single_SQL_query_to_df(posts_sql)
-
-postmeta_sql = 'SELECT * FROM wp_postmeta;'
-wp_postmeta_df = domo.woo_single_SQL_query_to_df(postmeta_sql)
-
-comments_sql = 'SELECT * FROM wp_comments;'
-wp_comments_df = domo.woo_single_SQL_query_to_df(comments_sql)
-
-items_sql = 'SELECT * FROM wp_woocommerce_order_items;'
-wp_woocommerce_order_items_df = domo.woo_single_SQL_query_to_df(items_sql)
-
-itemmeta_sql = 'SELECT * FROM wp_woocommerce_order_itemmeta;'
-wp_woocommerce_order_itemmeta_df = domo.woo_single_SQL_query_to_df(itemmeta_sql)
-
-order_product_lookup_sql = 'SELECT * FROM wp_wc_order_product_lookup;'
-wp_wc_order_product_lookup_df = domo.woo_single_SQL_query_to_df(order_product_lookup_sql)
-
-wp_users_sql = 'SELECT * FROM wp_users;'
-wp_users_df = domo.woo_single_SQL_query_to_df(wp_users_sql)
-
-wp_terms_sql = 'SELECT * FROM wp_terms;'
-wp_terms_df = domo.woo_single_SQL_query_to_df(wp_terms_sql)
-
-wp_termmeta_sql = 'SELECT * FROM wp_termmeta;'
-wp_termmeta_df = domo.woo_single_SQL_query_to_df(wp_termmeta_sql)
-
-wp_term_relationships_sql = 'SELECT * FROM wp_term_relationships;'
-wp_term_relationships_df = domo.woo_single_SQL_query_to_df(wp_term_relationships_sql)
-
-wp_term_taxonomy_sql = 'SELECT * FROM wp_term_taxonomy;'
-wp_term_taxonomy_df = domo.woo_single_SQL_query_to_df(wp_term_taxonomy_sql)
+##############################################################################
 
 
+wp_tables = [
+    'wp_posts',
+    'wp_postmeta',
+    'wp_comments',
+    'wp_wc_order_items',
+    'wp_wc_order_itemmeta',
+    'wp_wc_order_product_lookup',
+    'wp_users',
+    'wp_terms',
+    'wp_termmeta',
+    'wp_term_relationships',
+    'wp_term_taxonomy',
+    'wp_term_relationships',
+    'wp_term_taxonomy',
+    ]
 
-##########################################################################
-##########################################################################
-# SAVE RAW
+extract_list = []
+for q in wp_tables:
+    q = 'SELECT * FROM ' + q + ';'
+    extract_list.append(domo.extract_woo(q))
 
-wp_posts_df.to_pickle('pickles/wp_posts_df.pkl')
-wp_postmeta_df.to_pickle('pickles/wp_postmeta_df.pkl')
-wp_comments_df.to_pickle('pickles/wp_comments_df.pkl')
-wp_woocommerce_order_items_df.to_pickle('pickles/wp_woocommerce_order_items_df.pkl')
-wp_woocommerce_order_itemmeta_df.to_pickle('pickles/wp_woocommerce_order_itemmeta_df.pkl')
-wp_wc_order_product_lookup_df.to_pickle('pickles/wp_wc_order_product_lookup_df.pkl')
-wp_users_df.to_pickle('pickles/wp_users_df.pkl')
-wp_terms_df.to_pickle('pickles/wp_terms_df.pkl')
-wp_termmeta_df.to_pickle('pickles/wp_termmeta_df.pkl')
-wp_term_relationships_df.to_pickle('pickles/wp_term_relationships_df.pkl')
-wp_term_taxonomy_df.to_pickle('pickles/wp_term_taxonomy_df.pkl')
+# Save raw data
+for df, name in zip(extract_list, wp_tables):
+    df.to_pickle('pickles/' + name + '.pkl')
 
-
-# wp_posts_df = pd.read_pickle('pickles/wp_posts_df.pkl')
-# wp_postmeta_df = pd.read_pickle('pickles/wp_postmeta_df.pkl')
-# wp_woocommerce_order_items_df = pd.read_pickle('pickles/wp_woocommerce_order_items_df.pkl')
-# wp_woocommerce_order_itemmeta_df = pd.read_pickle('pickles/wp_woocommerce_order_itemmeta_df.pkl')
-# wp_wc_order_product_lookup_df = pd.read_pickle('pickles/wp_wc_order_product_lookup_df.pkl')
-# wp_users_df = pd.read_pickle('pickles/wp_users_df.pkl')
-# wp_terms_df = pd.read_pickle('pickles/wp_terms_df.pkl')
-# wp_termmeta_df = pd.read_pickle('pickles/wp_termmeta_df.pkl')
-# wp_term_relationships_df = pd.read_pickle('pickles/wp_term_relationships_df.pkl')
-# wp_term_taxonomy_df = pd.read_pickle('pickles/wp_term_taxonomy_df.pkl')
+# Unpack to df
+(   wp_posts,
+    wp_postmeta,
+    wp_comments,
+    wp_wc_order_items,
+    wp_wc_order_itemmeta,
+    wp_wc_order_product_lookup,
+    wp_users,
+    wp_terms,
+    wp_termmeta,
+    wp_term_relationships,
+    wp_term_taxonomy,
+    wp_term_relationships,
+    wp_term_taxonomy,
+) = tuple(extract_list)
 
 
-
-##########################################################################
-##########################################################################
+##############################################################################
 # TRANSFORM
+##############################################################################
+# Merge posts & postmeta into post_info containing order, product & coupon info
+post_info_df = wp_posts.set_index('ID').join(wp_postmeta.set_index('post_id'))
 
-# merge posts & postmeta
-post_info_df = wp_posts_df.set_index('ID').join(wp_postmeta_df.set_index('post_id'))
+
+##############################################################################
+# Processing order info
 
 
+# filter order from all posts
+order_df = post_info_df.loc[
+    post_info_df['post_type'].str.contains('shop_order'),
+    ['post_date', 'post_modified', 'post_excerpt', 'post_status', 'meta_key', 'meta_value']
+    ].sort_index(ascending=False)
 
-##########################################################################
-# PREP ORDER
 
-# order
-order_df = post_info_df.loc[post_info_df['post_type'].str.contains('shop_order'), ['post_date', 'post_modified', 'post_excerpt', 'post_status', 'meta_key', 'meta_value']].sort_index(ascending=False)
+# include relevant keys only
+order_relevant_keys = '''^_billing_|^_shipping_|^_name_|^_order_|^_payment|
+    ^_paid|_customer_user|^_refund'''
+order_df = order_df[order_df['meta_key'].str.contains(order_relevant_keys)].\
+    reset_index(names='order_id')
 
-# keep relevant keys only
-order_df = order_df[order_df['meta_key'].str.contains('^_billing_|^_shipping_|^_name_|^_order_|^_payment|^_paid|_customer_user|^_refund')].reset_index(names='order_id')
 
-# rename columns
-order_df.columns = ['order_id', 'created_at', 'updated_at', 'customer_note', 'status', 'meta_key', 'meta_value']
+# rename columns to more meaningful names
+order_df.columns = ['order_id', 'created_at', 'updated_at', 'customer_note',
+    'status', 'meta_key', 'meta_value']
+
 
 # check for duplicates => ok to drop
 order_df[order_df.duplicated(['order_id', 'meta_key'], False)]
 
-# reshape long to wide
-order_info_df = order_df.drop_duplicates(subset=['order_id', 'meta_key'], keep='last').pivot(index=['order_id', 'created_at', 'updated_at', 'customer_note', 'status'], columns='meta_key', values='meta_value').reset_index(level=['created_at', 'updated_at', 'customer_note', 'status']).sort_index(ascending=False)
 
-# _customer_user data
-wp_users_df.ID = wp_users_df.ID.astype(str)
-wp_users_df1 = wp_users_df.set_index('ID')[['user_email', 'display_name']]
-wp_users_df1.columns = ['user_email', 'user_display_name']
-
-# order note
-note_cols = ['comment_post_ID', 'comment_author', 'comment_author_email', 'comment_date', 'comment_content']
-order_note_df = wp_comments_df.loc[wp_comments_df['comment_type'].str.contains('order_note'), note_cols]
-order_note_df = order_note_df.rename(columns={'comment_post_ID':'order_id'})
-
-order_note_df1 = order_note_df[order_note_df.comment_author_email.str.contains('@docosan.com')]
-order_note_df1 = order_note_df1.groupby('order_id').first()
-
-# READY
-order_info_ready = order_info_df.join(wp_users_df1, '_customer_user').join(order_note_df1)
+# pivot df (reshape long to wide)
+order_df = order_df.\
+    drop_duplicates(subset=['order_id', 'meta_key'], keep='last').\
+    pivot(
+        index=['order_id', 'created_at', 'updated_at', 'customer_note',
+            'status'],
+        columns='meta_key',
+        values='meta_value').\
+    reset_index(level=['created_at', 'updated_at', 'customer_note', 'status']).\
+    sort_index(ascending=False)
 
 
-##########################################################################
-# PREP PRODUCT
-# product
-prod_df = wp_posts_df.loc[wp_posts_df['post_type'].str.contains('^product'), ['ID', 'post_date', 'post_modified', 'post_type', 'post_title', 'post_excerpt', 'post_parent']]
-prod_df.set_index('ID', inplace=True)
+# process user data
+wp_users.ID = wp_users.ID.astype(str)
+wp_users = wp_users.set_index('ID')[['user_email', 'display_name']]
+wp_users.columns = ['user_email', 'user_display_name']
+
+
+# process order note
+note_cols = ['comment_post_ID', 'comment_author', 'comment_author_email', \
+    'comment_date', 'comment_content']
+order_note = wp_comments.loc[wp_comments['comment_type'].\
+    str.contains('order_note'), note_cols]
+order_note = order_note.rename(columns={'comment_post_ID':'order_id'})
+order_note = order_note[order_note.comment_author_email.
+    str.contains('@docosan.com')].\
+    groupby('order_id').first() # keep info of staff who interacts first
+
+
+# ready
+order_ready = order_df.join(wp_users, '_customer_user').join(order_note)
+
+
+##############################################################################
+# Processing product info
+
+
+# filter product from all posts
+prod_relevant_cols = ['ID', 'post_date', 'post_modified', 'post_type', 'post_title', 'post_excerpt', 'post_parent']
+prod_df = wp_posts.loc[
+    wp_posts['post_type'].str.contains('^product'),
+    prod_relevant_cols].set_index('ID')
+
 
 # product meta - keep relevant keys only
-relevant_keys = '_regular_price|_sale_price|^_stock|^_tax|_wc_review_count|_wc_average_rating|^attribute_|^name_|total_sales'
-prod_meta_df = wp_postmeta_df[~(wp_postmeta_df['meta_key'].str.contains('^fb_'))&(wp_postmeta_df['meta_key'].str.contains(relevant_keys))]
+prod_relevant_keys = '''_regular_price|_sale_price|^_stock|^_tax|
+    _wc_review_count|_wc_average_rating|^attribute_|^name_|total_sales'''
+prod_meta_df = wp_postmeta[
+    ~(wp_postmeta['meta_key'].str.contains('^fb_'))
+    & (wp_postmeta['meta_key'].str.contains(prod_relevant_keys))]
+
 
 # join product & product meta
-prod_info_df = prod_df.join(prod_meta_df.set_index('post_id')).reset_index(names='product_id')
+prod_df = prod_df.join(prod_meta_df.set_index('post_id')).\
+    reset_index(names='product_id')
+
 
 # check for duplicates => dups in prices are prod variations
-dup = prod_info_df[prod_info_df.duplicated(subset=['product_id', 'meta_key'], keep=False)]
+prod_df[prod_df.duplicated(subset=['product_id', 'meta_key'], keep=False)]
     # if prod is variable (product_id in post_parent) => prices in child prod
     # if prod is simple (product_id NOT in post_parent) => _price = _sale_price if exists, else = _regular price
     # ACTION: drop _price in meta_key
 
+
 # reshape long to wide (after dropping NA in meta_key caused by AUTO-DRAFT products)
-idx = ['product_id', 'post_date', 'post_modified', 'post_type', 'post_title', 'post_excerpt', 'post_parent']
-prod_info_df = prod_info_df.dropna(subset='meta_key').pivot(index=idx, columns='meta_key', values='meta_value').reset_index(level=idx[1:]).sort_index(ascending=False)
+idx = ['product_id', 'post_date', 'post_modified', 'post_type', 'post_title',
+    'post_excerpt', 'post_parent']
+prod_df = prod_df.dropna(subset='meta_key').\
+    pivot(index=idx, columns='meta_key', values='meta_value').\
+    reset_index(level=idx[1:]).\
+    sort_index(ascending=False)
+
 
 # rename
-prod_info_df.columns = ['product_created', 'product_updated', 'product_type', 'product_name', 'product_description', 'product_parent', '_regular_price', '_sale_price', '_stock', '_stock_status', '_tax_class', '_tax_status', '_wc_average_rating', '_wc_review_count', 'attribute_gioi-tinh', 'attribute_hinh-thuc-lay-mau', 'attribute_ngon-ngu-huong-dan', 'attribute_tuoi', 'name_en', 'name_vi', 'total_sales']
+prod_df.columns = ['product_created', 'product_updated', 'product_type',
+    'product_name', 'product_description', 'product_parent', '_regular_price',
+    '_sale_price', '_stock', '_stock_status', '_tax_class', '_tax_status',
+    '_wc_average_rating', 'attribute_gioi-tinh', 'attribute_hinh-thuc-lay-mau',
+    'attribute_ngon-ngu-huong-dan', 'attribute_tuoi', 'name_en', 'name_vi',
+    'total_sales']
 
-#
-order_product_lookup_df = wp_wc_order_product_lookup_df.loc[:,['order_item_id', 'product_id', 'variation_id']].set_index('product_id')
-prod_var_info_df = order_product_lookup_df.join(prod_info_df).reset_index()
+
+# product variation
+prod_var_lookup = wp_wc_order_product_lookup[['order_item_id', 'product_id', 'variation_id']].set_index('product_id')
+prod_var = prod_var_lookup.join(prod_df).reset_index()
 
 # product category
-prod_cate_df = wp_term_relationships_df.join(wp_term_taxonomy_df.set_index('term_taxonomy_id'), on='term_taxonomy_id').join(wp_terms_df.set_index('term_id'), on='term_id')
-
-col = ['object_id', 'term_taxonomy_id', 'description', 'parent', 'name', 'slug']
-prod_cate_df = prod_cate_df.loc[prod_cate_df.taxonomy.str.contains('product_cat'), col]
-prod_cate_df.columns = ['product_id', 'category_id', 'category_description', 'category_parent', 'category_name', 'category_slug']
-
-# combine product multiple-categories
-prod_cate_df.set_index('product_id', inplace=True)
-prod_cate_df2 = pd.DataFrame(index=prod_cate_df.index.drop_duplicates())
-for c in prod_cate_df:
-    col = prod_cate_df[c].astype(str)
-    prod_cate_df2 = prod_cate_df2.join(col.groupby('product_id').apply('|'.join))
-prod_cate_df2.category_parent = prod_cate_df2.category_parent.replace('0|\\|| ', '', regex=True)
-
-prod_final_df = prod_var_info_df.join(prod_cate_df2, on='product_id')
-prod_final_df['category_slug'] = prod_final_df['category_slug'].str.replace('-', ' ').str.title()
+prod_cate = wp_term_relationships.\
+    join(wp_term_taxonomy.set_index('term_taxonomy_id'), on='term_taxonomy_id').\
+    join(wp_terms.set_index('term_id'), on='term_id')
+prod_cate_col = ['object_id', 'term_taxonomy_id', 'description', 'parent',
+    'name', 'slug']
+prod_cate = prod_cate.loc[prod_cate.taxonomy.str.contains('product_cat'),
+    prod_cate_col]
+prod_cate.columns = ['product_id', 'category_id', 'category_description',
+    'category_parent', 'category_name', 'category_slug']
 
 
+# concatenate product multi-categories
+prod_cate.set_index('product_id', inplace=True)
+prod_multi_cate = pd.DataFrame(index=prod_cate.index.drop_duplicates())
+for c in prod_cate:
+    col = prod_cate[c].astype(str)
+    prod_multi_cate = prod_multi_cate.join(col.groupby('product_id').
+        apply('|'.join))
+prod_multi_cate.category_parent = prod_multi_cate.category_parent.replace('0|\\|| ', '', regex=True)
 
-##########################################################################
-# PREP ITEM
+
+# ready
+prod_ready = prod_var.join(prod_multi_cate, on='product_id')
+prod_ready['category_slug'] = prod_ready['category_slug'].str.replace('-', ' ').str.title()
+
+
+
+##############################################################################
+# Processing item info
 
 # items
-items_df = wp_woocommerce_order_items_df.copy().sort_values('order_id').set_index('order_item_id')
-# items_df.order_item_type.unique()
+items_df = wp_wc_order_items.copy().sort_values('order_id').set_index('order_item_id')
 
 # itemmeta
-itemmeta_df = wp_woocommerce_order_itemmeta_df[~wp_woocommerce_order_itemmeta_df.meta_key.str.lower().str.contains('-|₫|mặt hàng')]
+itemmeta_df = wp_wc_order_itemmeta[~wp_wc_order_itemmeta.meta_key.str.lower().str.contains('-|₫|mặt hàng')]
 
 # check for duplicates => ok to drop
 itemmeta_df[itemmeta_df.duplicated(['order_item_id', 'meta_key'], keep=False)]
@@ -214,7 +246,7 @@ item_info_df = items_line_item1.join(items_shipping_info).join(items_coupon_info
 
 
 
-##########################################################################
+##############################################################################
 # PREP COUPON
 
 # coupon
@@ -239,13 +271,13 @@ coupon_info_df['coupon_amount'] = np.where(coupon_info_df['discount_type'].str.c
 
 
 
-##########################################################################
+##############################################################################
 # THE BIG JOIN
-woo_df = order_info_ready.join(item_info_df).join(prod_final_df.set_index('order_item_id'), on='order_item_id').join(coupon_info_df.set_index('coupon_code'), on='coupon_code').reset_index()
+woo_df = order_ready.join(item_info_df).join(prod_ready.set_index('order_item_id'), on='order_item_id').join(coupon_info_df.set_index('coupon_code'), on='coupon_code').reset_index()
 
 
 
-##########################################################################
+##############################################################################
 # PROCESS continued
 # filter internal orders
 woo_df_1 = woo_df[
@@ -406,8 +438,8 @@ df_woo_final['Address'] = (
 
 
 
-##########################################################################
-##########################################################################
+##############################################################################
+##############################################################################
 # LOAD
 # domo.update_gsheet('https://docs.google.com/spreadsheets/d/1AhariGN_ISezVTDMpD-hmzJbPyA4nEp8s782mLBiWWc/edit#gid=0', df_woo_final)
 
