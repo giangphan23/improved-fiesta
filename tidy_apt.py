@@ -69,10 +69,10 @@ apt_info_df2['item_payment_method'] = apt_info_df2['item_payment_method'].replac
     }).fillna('At Clinic')
 
 
-# item grouping
-group_df_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/\
-    1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').\
-    iloc[:, [0,3]].dropna(subset='Appointment ID')
+# # item grouping
+# group_df_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/\
+#     1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').\
+#     iloc[:, [0,3]].dropna(subset='Appointment ID')
 
 """
 # filter "Cares Actual" apt
@@ -90,9 +90,9 @@ domo.update_gsheet('https://docs.google.com/spreadsheets/d/\
 group_df_filled = domo.load_gsheet('https://docs.google.com/spreadsheets/d/\
     1SoATnnqdqB66XN0En7ivt8T6odGynGWSNYajqar8O6k/').iloc[:,[0,3]].dropna(subset='item_name_group')
 """
-apt_info_df3 = apt_info_df2.join(group_df_filled.set_index('Appointment ID'),\
-    on='Appointment ID')
-
+# apt_info_df3 = apt_info_df2.join(group_df_filled.set_index('Appointment ID'),\
+#     on='Appointment ID')
+apt_info_df3 = apt_info_df2
 
 # travel fee
 patient_address_df = domo.get_travel_fee(apt_info_df3.\
@@ -174,7 +174,7 @@ apt_final_df['Payment Date'] = apt_info_df3['original_payment_date']
 apt_final_df['Payment Status'] = apt_info_df3['item_payment_status']
 apt_final_df['Item ID'] = apt_info_df3['item_id']
 apt_final_df['Item Name VI'] = apt_info_df3['item_name']
-apt_final_df['Item Name Group'] = apt_info_df3['item_name_group']
+# apt_final_df['Item Name Group'] = apt_info_df3['item_name_group']
 apt_final_df['B2B'] = apt_info_df3['B2B']
 apt_final_df['Type Report'] = apt_info_df3['Type Report']
 apt_final_df['Platform'] = apt_info_df3['Platform']
@@ -205,5 +205,4 @@ apt_final_df['Address'] = ''
 #####################################################################
 #####################################################################
 # LOAD
-domo.update_gsheet('https://docs.google.com/spreadsheets/d/\
-    1toxh7WoGWurp1F0R_IEhb_8KU82twtE7EClSRQMZmu4/', apt_final_df)
+domo.update_gsheet('https://docs.google.com/spreadsheets/d/1raSZFxdnotNxRcoThOVcAQX_csC3nqJx9C-Z1msp69o/edit#gid=0', apt_final_df.head())
